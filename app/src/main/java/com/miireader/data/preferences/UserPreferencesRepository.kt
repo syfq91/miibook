@@ -10,6 +10,7 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.miireader.core.model.FilterMode
+import com.miireader.core.model.ReaderTheme
 import com.miireader.core.model.SortOrder
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
@@ -21,6 +22,7 @@ val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "us
 data class UserPreferences(
     val warmBackground: Boolean = false,
     val fontSizeSp: Int = 18,
+    val readerTheme: ReaderTheme = ReaderTheme.LIGHT,
     val animationsEnabled: Boolean = false,
     val refreshIntervalPages: Int = 10,
     val sortOrder: SortOrder = SortOrder.LAST_OPENED,
@@ -31,6 +33,7 @@ interface UserPreferencesRepository {
     val preferences: Flow<UserPreferences>
     suspend fun setWarmBackground(enabled: Boolean)
     suspend fun setFontSizeSp(sizeSp: Int)
+    suspend fun setReaderTheme(theme: ReaderTheme)
     suspend fun setAnimationsEnabled(enabled: Boolean)
     suspend fun setRefreshIntervalPages(pages: Int)
     suspend fun setSortOrder(order: SortOrder)
@@ -44,6 +47,7 @@ class DefaultUserPreferencesRepository(
     private object PreferencesKeys {
         val WARM_BACKGROUND = booleanPreferencesKey("warm_background")
         val FONT_SIZE_SP = intPreferencesKey("font_size_sp")
+        val READER_THEME = stringPreferencesKey("reader_theme")
         val ANIMATIONS_ENABLED = booleanPreferencesKey("animations_enabled")
         val REFRESH_INTERVAL_PAGES = intPreferencesKey("refresh_interval_pages")
         val SORT_ORDER = stringPreferencesKey("sort_order")
@@ -62,6 +66,7 @@ class DefaultUserPreferencesRepository(
             UserPreferences(
                 warmBackground = preferences[PreferencesKeys.WARM_BACKGROUND] ?: false,
                 fontSizeSp = preferences[PreferencesKeys.FONT_SIZE_SP] ?: 18,
+                readerTheme = ReaderTheme.fromName(preferences[PreferencesKeys.READER_THEME]),
                 animationsEnabled = preferences[PreferencesKeys.ANIMATIONS_ENABLED] ?: false,
                 refreshIntervalPages = preferences[PreferencesKeys.REFRESH_INTERVAL_PAGES] ?: 10,
                 sortOrder = SortOrder.fromName(preferences[PreferencesKeys.SORT_ORDER]),
@@ -75,6 +80,10 @@ class DefaultUserPreferencesRepository(
 
     override suspend fun setFontSizeSp(sizeSp: Int) {
         dataStore.edit { it[PreferencesKeys.FONT_SIZE_SP] = sizeSp.coerceIn(12, 36) }
+    }
+
+    override suspend fun setReaderTheme(theme: ReaderTheme) {
+        dataStore.edit { it[PreferencesKeys.READER_THEME] = theme.name }
     }
 
     override suspend fun setAnimationsEnabled(enabled: Boolean) {

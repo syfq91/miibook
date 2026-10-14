@@ -166,15 +166,51 @@ Domain operations that can fail in expected ways return sealed result types
 case. Exceptions are reserved for genuinely unexpected failures and are caught
 at the ViewModel boundary.
 
-## Known gaps / Phase 3 design notes
+## Reader (Phase 3)
 
-- **No reader yet.** Tapping a book shows a placeholder. Phase 3 integrates a
-  Readium navigator. Per `plan.md`, if the Compose navigator proves unsuitable
-  for production EPUBs, embed the established Android/WebView navigator in a
-  Compose host rather than reimplementing pagination with Compose `Text`.
-- **`reading_progress` and `bookmarks` tables exist but are unused** — written
-  and tested at the repository level, but nothing writes to them until the reader
-  lands.
+`ui/reader/` drives the reading screen. The governing rule from `plan.md`:
+**EPUB pagination is never reimplemented with Compose `Text`** — content is
+rendered by Readium's `EpubNavigatorFragment` (a WebView), hosted from Compose.
+
+- `ReaderViewModel` opens the publication, restores the saved locator from
+  `reading_progress`, builds the table of contents, and persists progress and
+  bookmarks. It exposes `uiState` (the usual `combine` + `stateIn`) plus a
+  separate `session: StateFlow<ReaderSession?>` carrying the live `Publication`,
+  the resolved TOC and the locator to restore into.
+- `EpubNavigatorHost` owns the fragment transaction. It defers the transaction
+  with `View.post { }` until its `FragmentContainerView` is attached
+  (FragmentManager throws "No view found for id" otherwise) and removes the
+  fragment in a `DisposableEffect`.
+- `ReaderNavigator` is a four-method interface (`currentLocator`, `go`,
+  `goForward`, `goBackward`), adapted from Readium's `OverflowableNavigator` by
+  `ReadiumReaderNavigator`. `ReaderViewModel` depends only on that interface,
+  which is what makes it testable without a WebView.
+- `MainActivity` extends `FragmentActivity`, installs
+  `EpubNavigatorFragment.createDummyFactory()` *before* `super.onCreate()` so
+  system restoration does not crash on the internal constructor, removes the
+  restored dummy immediately afterwards, and intercepts `KEYCODE_PAGE_UP` /
+  `KEYCODE_PAGE_DOWN` in `dispatchKeyEvent` (volume keys are deliberately left
+  alone).
+- `android:configChanges` keeps the Activity — and therefore the WebView and its
+  scroll position — alive across rotation instead of recreating everything.
+
+Publication lifecycle: `ReaderViewModel.onCleared` closes the `Publication`
+explicitly, because `Publication` is **not** `AutoCloseable`. The ViewModel is
+scoped to the navigation entry, so popping the reader route closes it.
+
+Progress and bookmarks are stored as the serialized Readium `Locator` plus a
+derived percentage. Page numbers are deliberately not persisted: they change
+whenever the font size or screen changes.
+
+## Known gaps
+
+- **The reader has never been run on hardware.** Phase 3 was verified with unit
+  tests and `assembleDebug` only; there is no device or emulator on the build
+  machine. Page rendering, hardware page-turn keys, rotation behaviour and
+  e-paper refresh are unproven on a real screen.
+- **No e-paper refresh control from the reader.** `EpaperController` is still a
+  no-op baseline and nothing in the reading path calls it; the Settings "full
+  refresh" button is a placeholder. Phase 5.
 - **Catalog/OPDS is a placeholder screen.** Phase 4.
 - **Covers are not extracted or displayed.** `BookEntity.cover_path` is reserved;
   Coil is in the version catalog but not yet wired into dependencies.

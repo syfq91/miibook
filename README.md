@@ -7,8 +7,10 @@ gradients that look bad and cause ghosting on e-ink displays.
 Inspired by CrossPoint Reader's reading-focused design, but built as a native
 Android app — not a firmware reproduction.
 
-**Status:** v0.1.0 — Phase 2 of 6 complete. You can import local EPUB files into
-an offline library. The reader itself is not built yet (Phase 3).
+**Status:** v0.1.0 — Phase 3 of 6 complete. You can import local EPUB files into
+an offline library and read them. Note that the reader has been verified with
+unit tests and a debug build only — it has not yet been run on e-paper
+hardware.
 
 ## Features
 
@@ -24,13 +26,21 @@ an offline library. The reader itself is not built yet (Phase 3).
 - E-paper theme: pure monochrome, high contrast, no animations or shadows
 - Warm-white / pure-white background toggle
 - Static, non-animated progress indicators and screen transitions
+- Reading screen built on Readium's WebView navigator (paginated, no Compose
+  pagination)
+- Previous/next page controls, plus hardware page-turn keys (`PAGE_UP` /
+  `PAGE_DOWN`)
+- Table of contents and chapter navigation
+- Font-size adjustment and Light / Dark / Sepia page themes
+- Bookmarks — create, list, jump to, remove
+- Reading position persisted and restored on reopen
+- Minimal toolbar that can be hidden while reading
 
 **Not yet implemented**
 
-- The actual EPUB reader (Phase 3)
-- Bookmarks and reading-position restore (Phase 3)
 - OPDS catalog browsing and downloads (Phase 4)
 - Device-specific e-paper refresh control (Phase 5)
+- On-device validation of the reader (no test hardware available yet)
 
 ## Tech stack
 
@@ -78,7 +88,7 @@ physical hardware — Compose-level tests cannot confirm panel refresh modes.
 
 ```
 app/src/main/java/com/miireader/
-├── core/           dispatchers, error types, shared models
+├── core/           dispatchers, error types, input bridges, shared models
 ├── data/
 │   ├── epub/       Readium publication opening + metadata extraction
 │   ├── local/      Room database, DAOs, entities
@@ -91,6 +101,7 @@ app/src/main/java/com/miireader/
     ├── catalog/    OPDS browser (placeholder)
     ├── components/ reusable e-paper UI widgets
     ├── navigation/ routes
+    ├── reader/     reading screen, Readium navigator host, reader panels
     ├── settings/   reading + e-paper preferences
     └── theme/      monochrome design system
 ```
@@ -114,7 +125,7 @@ The full plan lives in [`plan.md`](plan.md).
 
 - [x] Phase 1 — project foundation, theme, navigation
 - [x] Phase 2 — local EPUB library and import
-- [ ] Phase 3 — EPUB reader (Readium navigator, bookmarks, position restore)
+- [x] Phase 3 — EPUB reader (Readium navigator, bookmarks, position restore)
 - [ ] Phase 4 — OPDS catalogs and downloads
 - [ ] Phase 5 — e-paper optimization and hardware validation
 - [ ] Phase 6 — hardening and release

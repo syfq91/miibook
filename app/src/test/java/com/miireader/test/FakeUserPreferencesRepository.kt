@@ -1,6 +1,7 @@
 package com.miireader.test
 
 import com.miireader.core.model.FilterMode
+import com.miireader.core.model.ReaderTheme
 import com.miireader.core.model.SortOrder
 import com.miireader.data.preferences.UserPreferences
 import com.miireader.data.preferences.UserPreferencesRepository
@@ -21,6 +22,10 @@ class FakeUserPreferencesRepository(
 
     override suspend fun setFontSizeSp(sizeSp: Int) {
         _preferences.value = _preferences.value.copy(fontSizeSp = sizeSp)
+    }
+
+    override suspend fun setReaderTheme(theme: ReaderTheme) {
+        _preferences.value = _preferences.value.copy(readerTheme = theme)
     }
 
     override suspend fun setAnimationsEnabled(enabled: Boolean) {

@@ -5,8 +5,11 @@ import com.miireader.core.dispatchers.CoroutineDispatchers
 import com.miireader.core.dispatchers.DefaultCoroutineDispatchers
 import com.miireader.core.error.DefaultErrorHandler
 import com.miireader.core.error.ErrorHandler
+import com.miireader.core.input.PageTurnKeys
 import com.miireader.data.epub.EpubMetadataExtractor
+import com.miireader.data.epub.EpubPublicationRepository
 import com.miireader.data.epub.ReadiumEpubMetadataExtractor
+import com.miireader.data.epub.ReadiumEpubPublicationRepository
 import com.miireader.data.local.AppDatabase
 import com.miireader.data.preferences.DefaultUserPreferencesRepository
 import com.miireader.data.preferences.UserPreferencesRepository
@@ -33,9 +36,17 @@ interface AppContainer {
     val userPreferencesRepository: UserPreferencesRepository
     val bookRepository: BookRepository
     val bookImporter: BookImporter
+    val publicationRepository: EpubPublicationRepository
     val progressRepository: ProgressRepository
     val bookmarkRepository: BookmarkRepository
     val epaperController: EpaperController
+
+    /**
+     * App-scoped bridge between hardware page-turn keys and whichever reader is open.
+     * Lives here rather than on the Activity so the reader registers against something
+     * that survives configuration changes.
+     */
+    val pageTurnKeys: PageTurnKeys
 }
 
 class DefaultAppContainer(override val context: Context) : AppContainer {
@@ -71,6 +82,12 @@ class DefaultAppContainer(override val context: Context) : AppContainer {
     private val epubMetadataExtractor: EpubMetadataExtractor by lazy {
         ReadiumEpubMetadataExtractor(context, dispatchers)
     }
+
+    override val publicationRepository: EpubPublicationRepository by lazy {
+        ReadiumEpubPublicationRepository(context, dispatchers)
+    }
+
+    override val pageTurnKeys: PageTurnKeys by lazy { PageTurnKeys() }
 
     override val progressRepository: ProgressRepository by lazy {
         DefaultProgressRepository(database.readingProgressDao(), dispatchers)

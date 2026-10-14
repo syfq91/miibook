@@ -67,6 +67,8 @@ dependencies {
   implementation(libs.androidx.core.ktx)
   implementation(libs.androidx.lifecycle.runtime.ktx)
   implementation(libs.androidx.activity.compose)
+  // Required to host Readium's EpubNavigatorFragment (FragmentActivity + fragmentFactory).
+  implementation(libs.androidx.fragment.ktx)
 
   // Lifecycle & Viewmodel
   implementation(libs.androidx.lifecycle.runtime.compose)
@@ -87,10 +89,11 @@ dependencies {
   ksp(libs.androidx.room.compiler)
   implementation(libs.androidx.datastore.preferences)
 
-  // Readium Toolkit (EPUB parsing/opening). Navigator & OPDS modules are
-  // wired in during Phase 3 and Phase 4 respectively.
+  // Readium Toolkit (EPUB parsing/opening + the reading navigator). The OPDS
+  // module is wired in during Phase 4.
   implementation(libs.readium.shared)
   implementation(libs.readium.streamer)
+  implementation(libs.readium.navigator)
 
   // Tooling
   debugImplementation(libs.androidx.compose.ui.tooling)

@@ -10,12 +10,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.navArgument
 import com.miireader.di.ViewModelFactory
 import com.miireader.ui.bookshelf.BookshelfScreen
 import com.miireader.ui.bookshelf.BookshelfViewModel
 import com.miireader.ui.catalog.CatalogScreen
+import com.miireader.ui.reader.ReaderScreen
+import com.miireader.ui.reader.ReaderViewModel
 import com.miireader.ui.settings.SettingsScreen
 import com.miireader.ui.settings.SettingsViewModel
 
@@ -47,7 +51,7 @@ fun AppNavigation(
                 onFilterSelected = viewModel::onFilterSelected,
                 onSortOrderSelected = viewModel::onSortOrderSelected,
                 onBookClick = { bookId ->
-                    Toast.makeText(context, "Opening reader for book will be enabled in Phase 3", Toast.LENGTH_SHORT).show()
+                    navController.navigate(Screen.Reader.create(bookId))
                 },
                 onImportEpubClick = {
                     // Handled by the SAF launcher inside BookshelfScreen.
@@ -60,6 +64,38 @@ fun AppNavigation(
                     navController.navigate(Screen.Catalog.route)
                 },
                 onClearError = viewModel::clearError
+            )
+        }
+
+        composable(
+            route = Screen.Reader.route,
+            arguments = listOf(
+                navArgument(Screen.Reader.ARG_BOOK_ID) { type = NavType.StringType }
+            )
+        ) { entry ->
+            val bookId = entry.arguments?.getString(Screen.Reader.ARG_BOOK_ID).orEmpty()
+            val viewModel: ReaderViewModel = viewModel(
+                key = "reader-$bookId",
+                factory = viewModelFactory.readerViewModelFactory(bookId)
+            )
+            val uiState by viewModel.uiState.collectAsState()
+            val session by viewModel.session.collectAsState()
+
+            ReaderScreen(
+                uiState = uiState,
+                session = session,
+                onBack = { navController.popBackStack() },
+                onNavigatorReady = viewModel::onNavigatorReady,
+                onNavigatorDisposed = viewModel::onNavigatorDisposed,
+                onToggleToolbar = viewModel::toggleToolbar,
+                onPreviousPage = viewModel::goBackward,
+                onNextPage = viewModel::goForward,
+                onToggleBookmark = viewModel::toggleBookmarkForCurrentPosition,
+                onTocItemSelected = viewModel::goToTocItem,
+                onBookmarkSelected = viewModel::goToBookmark,
+                onRemoveBookmark = viewModel::removeBookmark,
+                onFontSizeChanged = viewModel::onFontSizeChanged,
+                onReaderThemeChanged = viewModel::onReaderThemeChanged
             )
         }
 

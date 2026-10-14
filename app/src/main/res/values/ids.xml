@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      Container for Readium's EPUB navigator fragment.
+
+      A resource id is used instead of View.generateViewId() so the id survives Activity
+      recreation: FragmentManager records the container id in its saved state, and an id
+      generated at runtime would not match after a restore.
+    -->
+    <item name="reader_navigator_container" type="id" />
+</resources>

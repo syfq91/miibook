@@ -13,6 +13,10 @@ class FakeProgressRepository(
 
     private val _progress = MutableStateFlow(initialProgress)
 
+    /** Number of writes accepted, so tests can assert on persistence behaviour. */
+    var saveCount: Int = 0
+        private set
+
     override fun getProgressForBookFlow(bookId: String): Flow<ReadingProgressEntity?> {
         return _progress.map { list -> list.find { it.bookId == bookId } }
     }
@@ -26,6 +30,7 @@ class FakeProgressRepository(
     }
 
     override suspend fun saveProgress(progress: ReadingProgressEntity) {
+        saveCount++
         val current = _progress.value.filter { it.bookId != progress.bookId }
         _progress.value = current + progress
     }

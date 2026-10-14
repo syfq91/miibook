@@ -10,8 +10,16 @@
         android:supportsRtl="true"
         android:windowSoftInputMode="adjustResize"
         android:theme="@style/Theme.MiiReader">
+        <!--
+          The reader hosts Readium's EpubNavigatorFragment, which wraps a WebView.
+          Handling these changes in place keeps the WebView (and the exact scroll
+          position within a chapter) alive instead of recreating the Activity, which
+          would tear the navigator down and force a full reload. Compose still
+          receives the new configuration and re-lays out normally.
+        -->
         <activity
             android:name=".MainActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|density"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

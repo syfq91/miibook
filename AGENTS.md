@@ -64,6 +64,25 @@ The docs online are often for a different version. These bite hard:
   `pdfFactory` is nullable; pass `null` for EPUB-only support.
 - `assetRetriever.retrieve(url)` and `opener.open(asset, allowUserInteraction =
   false)` both return `Try`.
+- `VisualNavigator` does **not** declare `goForward`/`goBackward`; those live on
+  `OverflowableNavigator` (which `EpubNavigatorFragment` implements). Anything
+  that turns pages should depend on `ui/reader/ReaderNavigator` instead of a
+  Readium navigator type.
+- `Publication.locatorFromLink(link)` returns **null** unless the href exists in
+  the reading order *and* that reading-order `Link` has a `mediaType`. A
+  `Manifest` carrying only a `tableOfContents` resolves nothing — always build
+  the reading order too (see `testPublication` in the test doubles).
+- Readium's Compose navigators (`readium-navigators-web-reflowable` plus its
+  `-common` / `-internals` siblings) are **not published to Maven Central** for
+  3.3.0 — every version returns HTTP 404. Only the Android/Fragment navigator is
+  consumable while Readium stays pinned to 3.3.0.
+- `EpubNavigatorFragment`'s constructor is `internal`. Build it via
+  `EpubNavigatorFactory(publication).createFragmentFactory(...)` +
+  `factory.instantiate(...)`. Install
+  `EpubNavigatorFragment.createDummyFactory()` on the FragmentManager **before**
+  `super.onCreate()` so system restoration does not crash, and remove the
+  restored dummy immediately afterwards — its `onResume()` throws
+  `RestorationNotSupportedException`.
 
 To verify an API, inspect the actual AAR in
 `~/.gradle/caches/modules-2/files-2.1/org.readium.kotlin-toolkit/` rather than
@@ -112,6 +131,10 @@ control is Phase 5 and requires a confirmed manufacturer SDK.
   update **both** the interface/impl and the corresponding fake, or compilation
   of the tests breaks.
 - Local tests needing `Uri`/`Context` use Robolectric (see above).
+- `stateIn(WhileSubscribed(...))` conflates: a collector sees updates late while
+  `viewModel.uiState.value` is already current. Subscribe to keep the sharing
+  alive, then assert on `.value` rather than on values captured from the
+  collected stream — see `ReaderViewModelTest.activate`.
 - There is no instrumentation test suite yet beyond the default scaffolding.
 
 ## Git
@@ -124,7 +147,13 @@ control is Phase 5 and requires a confirmed manufacturer SDK.
 
 ## Current status
 
-Phase 1 (foundation) and Phase 2 (local EPUB library + SAF import) are done and
-pushed. **The reader screen is not built** (Phase 3). Tapping a book currently
-shows a placeholder. OPDS/catalog is a placeholder. Do not claim reading works
-until Phase 3 is implemented and verified.
+Phase 1 (foundation), Phase 2 (local EPUB library + SAF import) and Phase 3
+(EPUB reader) are done and pushed. The reader embeds Readium's
+`EpubNavigatorFragment` (Fragment/WebView) in a Compose host — see the Phase 3
+notes in `plan.md` for why the Compose navigators were not usable. OPDS/catalog
+is still a placeholder (Phase 4).
+
+**Phase 3 verification was unit tests plus `assembleDebug` only** — there is no
+device or emulator on this machine. Page rendering, hardware page-turn keys,
+rotation and e-paper refresh have **not** been observed on hardware; never claim
+they work without testing them.

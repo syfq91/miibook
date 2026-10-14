@@ -246,15 +246,32 @@ Test visual ghosting and refresh behavior on physical hardware. Compose-level op
 > because 3.4.0's AAR requires compileSdk 37 (this project is on 36 / AGP 9.0.1).
 
 ### Phase 3: EPUB Reader
-- [ ] Integrate the selected Readium navigator.
-- [ ] Implement paginated navigation.
-- [ ] Add font-size and theme settings.
-- [ ] Implement table of contents navigation.
-- [ ] Add bookmark creation and removal.
-- [ ] Persist and restore reading positions.
-- [ ] Handle lifecycle changes and publication closure correctly.
+- [x] Integrate the selected Readium navigator.
+- [x] Implement paginated navigation.
+- [x] Add font-size and theme settings.
+- [x] Implement table of contents navigation.
+- [x] Add bookmark creation and removal.
+- [x] Persist and restore reading positions.
+- [x] Handle lifecycle changes and publication closure correctly.
 
 > **Deliverable:** A usable EPUB reader with persistent progress and bookmarks.
+
+> **Phase 3 notes:** The reader embeds Readium's Fragment/WebView-based
+> `EpubNavigatorFragment` inside a Compose host — the fallback path described in
+> section 4.3. Readium's Compose navigators (`readium-navigators-web-reflowable` and
+> its `-common`/`-internals` siblings) are **not published as Maven artifacts in
+> 3.3.0**; they return HTTP 404 on Maven Central for every version, so the Android
+> navigator is the only consumable choice while Readium is pinned to 3.3.0.
+> `MainActivity` extends `FragmentActivity`, installs
+> `EpubNavigatorFragment.createDummyFactory()` before `super.onCreate()` so process
+> restoration does not crash, and declares `android:configChanges` so the WebView
+> survives rotation. Hardware page-turn keys are intercepted only for
+> `KEYCODE_PAGE_UP`/`KEYCODE_PAGE_DOWN`; volume keys are deliberately not consumed.
+>
+> **Verification for this phase is limited to unit tests and `assembleDebug`.** No
+> device or emulator exists on the build machine, so page rendering, hardware key
+> handling, rotation, and e-paper refresh behaviour have **not** been exercised on
+> real hardware and must not be claimed to work.
 
 ### Phase 4: OPDS and Downloads
 - [ ] Implement catalog URL management.
