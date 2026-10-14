@@ -121,4 +121,4 @@ The full plan lives in [`plan.md`](plan.md).
 
 ## License
 
-No license has been chosen yet. All rights reserved by default.
+[MIT](LICENSE) © 2026 syfq91.
