@@ -79,6 +79,9 @@ class FakeBookDao : BookDao {
 
     override suspend fun getBookById(id: String): BookEntity? = items.value.find { it.id == id }
 
+    override suspend fun getBookByChecksum(checksum: String): BookEntity? =
+        items.value.find { it.contentChecksum == checksum }
+
     override fun getBookByIdFlow(id: String): Flow<BookEntity?> = items.map { list -> list.find { it.id == id } }
 
     override fun searchBooks(query: String): Flow<List<BookEntity>> {

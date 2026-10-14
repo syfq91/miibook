@@ -38,6 +38,13 @@ android {
     shaders = false
   }
 
+  testOptions {
+    unitTests {
+      // Robolectric needs Android resources for local JVM tests.
+      isIncludeAndroidResources = true
+    }
+  }
+
   packaging {
     resources {
       excludes += "/META-INF/{AL2.0,LGPL2.1}"
@@ -80,6 +87,11 @@ dependencies {
   ksp(libs.androidx.room.compiler)
   implementation(libs.androidx.datastore.preferences)
 
+  // Readium Toolkit (EPUB parsing/opening). Navigator & OPDS modules are
+  // wired in during Phase 3 and Phase 4 respectively.
+  implementation(libs.readium.shared)
+  implementation(libs.readium.streamer)
+
   // Tooling
   debugImplementation(libs.androidx.compose.ui.tooling)
   debugImplementation(libs.androidx.compose.ui.test.manifest)
@@ -87,6 +99,7 @@ dependencies {
   // Unit Testing
   testImplementation(libs.junit)
   testImplementation(libs.kotlinx.coroutines.test)
+  testImplementation(libs.robolectric)
 
   // Android Instrumented Testing
   androidTestImplementation(libs.androidx.compose.ui.test.junit4)

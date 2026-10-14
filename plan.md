@@ -228,14 +228,22 @@ Test visual ghosting and refresh behavior on physical hardware. Compose-level op
 > **Deliverable:** A compiling app with a bookshelf shell and settings screen.
 
 ### Phase 2: Local EPUB Library
-- [ ] Implement EPUB import through the Storage Access Framework.
-- [ ] Handle URI permissions or copy imported files into app-private storage.
-- [ ] Integrate Readium's publication opener.
-- [ ] Store imported-book metadata in Room.
-- [ ] Implement search, filters, sorting, and book opening.
-- [ ] Add invalid-file and unsupported-publication handling.
+- [x] Implement EPUB import through the Storage Access Framework.
+- [x] Handle URI permissions or copy imported files into app-private storage.
+- [x] Integrate Readium's publication opener.
+- [x] Store imported-book metadata in Room.
+- [x] Implement search, filters, sorting, and book opening.
+- [x] Add invalid-file and unsupported-publication handling.
 
 > **Deliverable:** Users can import EPUBs and see them in an offline library.
+
+> **Phase 2 notes:** Import uses the SAF `OpenDocument` picker, copies the file
+> into `filesDir/books/`, extracts title/author via Readium's `PublicationOpener`,
+> computes a SHA-256 checksum for duplicate detection, and persists to Room.
+> Invalid/corrupt/non-EPUB files are rejected with a user-facing message and the
+> temporary copy is cleaned up. The bookshelf "open" action is wired but reading
+> itself is delivered in Phase 3 (the reader screen). Readium is pinned to 3.3.0
+> because 3.4.0's AAR requires compileSdk 37 (this project is on 36 / AGP 9.0.1).
 
 ### Phase 3: EPUB Reader
 - [ ] Integrate the selected Readium navigator.

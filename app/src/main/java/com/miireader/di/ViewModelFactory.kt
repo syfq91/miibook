@@ -15,6 +15,7 @@ class ViewModelFactory(
             modelClass.isAssignableFrom(BookshelfViewModel::class.java) -> {
                 BookshelfViewModel(
                     bookRepository = container.bookRepository,
+                    bookImporter = container.bookImporter,
                     progressRepository = container.progressRepository,
                     userPreferencesRepository = container.userPreferencesRepository,
                     errorHandler = container.errorHandler

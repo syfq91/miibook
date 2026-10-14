@@ -12,6 +12,7 @@ interface BookRepository {
     fun searchBooks(query: String): Flow<List<BookEntity>>
     fun getBookByIdFlow(id: String): Flow<BookEntity?>
     suspend fun getBookById(id: String): BookEntity?
+    suspend fun getBookByChecksum(checksum: String): BookEntity?
     suspend fun insertBook(book: BookEntity)
     suspend fun insertBooks(books: List<BookEntity>)
     suspend fun updateBook(book: BookEntity)
@@ -40,6 +41,12 @@ class DefaultBookRepository(
     override suspend fun getBookById(id: String): BookEntity? {
         return withContext(dispatchers.io) {
             bookDao.getBookById(id)
+        }
+    }
+
+    override suspend fun getBookByChecksum(checksum: String): BookEntity? {
+        return withContext(dispatchers.io) {
+            bookDao.getBookByChecksum(checksum)
         }
     }
 

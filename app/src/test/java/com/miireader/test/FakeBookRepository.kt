@@ -30,6 +30,10 @@ class FakeBookRepository(
         return _books.value.find { it.id == id }
     }
 
+    override suspend fun getBookByChecksum(checksum: String): BookEntity? {
+        return _books.value.find { it.contentChecksum == checksum }
+    }
+
     override suspend fun insertBook(book: BookEntity) {
         val current = _books.value.filter { it.id != book.id }
         _books.value = current + book

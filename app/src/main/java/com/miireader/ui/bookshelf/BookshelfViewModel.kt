@@ -1,5 +1,6 @@
 package com.miireader.ui.bookshelf
 
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.miireader.core.error.ErrorHandler
@@ -8,7 +9,9 @@ import com.miireader.core.model.SortOrder
 import com.miireader.data.local.entity.BookEntity
 import com.miireader.data.local.entity.ReadingProgressEntity
 import com.miireader.data.preferences.UserPreferencesRepository
+import com.miireader.data.repository.BookImporter
 import com.miireader.data.repository.BookRepository
+import com.miireader.data.repository.ImportResult
 import com.miireader.data.repository.ProgressRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -19,6 +22,7 @@ import kotlinx.coroutines.launch
 
 class BookshelfViewModel(
     private val bookRepository: BookRepository,
+    private val bookImporter: BookImporter,
     private val progressRepository: ProgressRepository,
     private val userPreferencesRepository: UserPreferencesRepository,
     private val errorHandler: ErrorHandler
@@ -27,6 +31,7 @@ class BookshelfViewModel(
     private val _searchQuery = MutableStateFlow("")
     private val _isSearchActive = MutableStateFlow(false)
     private val _errorMessage = MutableStateFlow<String?>(null)
+    private val _isImporting = MutableStateFlow(false)
 
     private val booksWithProgressFlow = combine(
         bookRepository.getAllBooks(),
@@ -48,15 +53,17 @@ class BookshelfViewModel(
     private data class SearchState(
         val query: String,
         val isSearchActive: Boolean,
-        val errorMessage: String?
+        val errorMessage: String?,
+        val isImporting: Boolean
     )
 
     private val searchStateFlow = combine(
         _searchQuery,
         _isSearchActive,
-        _errorMessage
-    ) { query, isSearchActive, errorMessage ->
-        SearchState(query, isSearchActive, errorMessage)
+        _errorMessage,
+        _isImporting
+    ) { query, isSearchActive, errorMessage, isImporting ->
+        SearchState(query, isSearchActive, errorMessage, isImporting)
     }
 
     val uiState: StateFlow<BookshelfUiState> = combine(
@@ -94,6 +101,7 @@ class BookshelfViewModel(
             filterMode = prefs.filterMode,
             sortOrder = prefs.sortOrder,
             isLoading = false,
+            isImporting = searchState.isImporting,
             errorMessage = searchState.errorMessage
         )
     }.stateIn(
@@ -131,6 +139,37 @@ class BookshelfViewModel(
                 bookRepository.deleteBookById(bookId)
             } catch (e: Exception) {
                 _errorMessage.value = "Failed to delete book: ${e.message}"
+            }
+        }
+    }
+
+    /**
+     * Imports an EPUB picked via the Storage Access Framework. Shows a static
+     * "importing" indicator while the copy/parse runs, surfaces a user-facing
+     * message on failure or duplicate, and lets the library flow update on success.
+     */
+    fun importBook(uri: Uri) {
+        if (_isImporting.value) return
+        viewModelScope.launch {
+            _isImporting.value = true
+            _errorMessage.value = null
+            try {
+                when (val result = bookImporter.importBook(uri)) {
+                    is ImportResult.Success -> {
+                        // Library flow refreshes automatically via Room.
+                    }
+                    is ImportResult.Duplicate -> {
+                        _errorMessage.value =
+                            "\"${result.existingBook.title}\" is already in your library."
+                    }
+                    is ImportResult.Failure -> {
+                        _errorMessage.value = result.reason
+                    }
+                }
+            } catch (e: Exception) {
+                _errorMessage.value = "Import failed: ${e.message}"
+            } finally {
+                _isImporting.value = false
             }
         }
     }

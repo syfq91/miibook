@@ -19,5 +19,6 @@ data class BookshelfUiState(
     val filterMode: FilterMode = FilterMode.ALL,
     val sortOrder: SortOrder = SortOrder.LAST_OPENED,
     val isLoading: Boolean = false,
+    val isImporting: Boolean = false,
     val errorMessage: String? = null
 )

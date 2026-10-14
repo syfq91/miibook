@@ -28,5 +28,13 @@ data class BookEntity(
     val lastOpenedDate: Long? = null,
 
     @ColumnInfo(name = "download_status")
-    val downloadStatus: String = "LOCAL" // LOCAL, DOWNLOADING, DOWNLOADED, FAILED
+    val downloadStatus: String = "LOCAL", // LOCAL, DOWNLOADING, DOWNLOADED, FAILED
+
+    /**
+     * SHA-256 checksum of the imported file's content, used to detect duplicate
+     * imports. Null for books imported before this field existed or for books
+     * whose checksum could not be computed.
+     */
+    @ColumnInfo(name = "content_checksum")
+    val contentChecksum: String? = null
 )

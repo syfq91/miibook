@@ -5,12 +5,16 @@ import com.miireader.core.dispatchers.CoroutineDispatchers
 import com.miireader.core.dispatchers.DefaultCoroutineDispatchers
 import com.miireader.core.error.DefaultErrorHandler
 import com.miireader.core.error.ErrorHandler
+import com.miireader.data.epub.EpubMetadataExtractor
+import com.miireader.data.epub.ReadiumEpubMetadataExtractor
 import com.miireader.data.local.AppDatabase
 import com.miireader.data.preferences.DefaultUserPreferencesRepository
 import com.miireader.data.preferences.UserPreferencesRepository
 import com.miireader.data.preferences.dataStore
+import com.miireader.data.repository.BookImporter
 import com.miireader.data.repository.BookRepository
 import com.miireader.data.repository.BookmarkRepository
+import com.miireader.data.repository.DefaultBookImporter
 import com.miireader.data.repository.DefaultBookRepository
 import com.miireader.data.repository.DefaultBookmarkRepository
 import com.miireader.data.repository.DefaultProgressRepository
@@ -28,6 +32,7 @@ interface AppContainer {
     val database: AppDatabase
     val userPreferencesRepository: UserPreferencesRepository
     val bookRepository: BookRepository
+    val bookImporter: BookImporter
     val progressRepository: ProgressRepository
     val bookmarkRepository: BookmarkRepository
     val epaperController: EpaperController
@@ -52,6 +57,19 @@ class DefaultAppContainer(override val context: Context) : AppContainer {
 
     override val bookRepository: BookRepository by lazy {
         DefaultBookRepository(database.bookDao(), dispatchers)
+    }
+
+    override val bookImporter: BookImporter by lazy {
+        DefaultBookImporter(
+            context = context,
+            bookRepository = bookRepository,
+            metadataExtractor = epubMetadataExtractor,
+            dispatchers = dispatchers
+        )
+    }
+
+    private val epubMetadataExtractor: EpubMetadataExtractor by lazy {
+        ReadiumEpubMetadataExtractor(context, dispatchers)
     }
 
     override val progressRepository: ProgressRepository by lazy {

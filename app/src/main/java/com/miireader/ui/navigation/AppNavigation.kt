@@ -50,8 +50,9 @@ fun AppNavigation(
                     Toast.makeText(context, "Opening reader for book will be enabled in Phase 3", Toast.LENGTH_SHORT).show()
                 },
                 onImportEpubClick = {
-                    Toast.makeText(context, "SAF File Import will be connected in Phase 2", Toast.LENGTH_SHORT).show()
+                    // Handled by the SAF launcher inside BookshelfScreen.
                 },
+                onImportUriSelected = viewModel::importBook,
                 onNavigateToSettings = {
                     navController.navigate(Screen.Settings.route)
                 },

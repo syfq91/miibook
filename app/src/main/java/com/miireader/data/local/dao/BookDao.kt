@@ -17,6 +17,9 @@ interface BookDao {
     @Query("SELECT * FROM books WHERE id = :id")
     suspend fun getBookById(id: String): BookEntity?
 
+    @Query("SELECT * FROM books WHERE content_checksum = :checksum LIMIT 1")
+    suspend fun getBookByChecksum(checksum: String): BookEntity?
+
     @Query("SELECT * FROM books WHERE id = :id")
     fun getBookByIdFlow(id: String): Flow<BookEntity?>
 

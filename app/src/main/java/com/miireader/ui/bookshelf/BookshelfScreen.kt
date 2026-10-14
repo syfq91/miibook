@@ -1,5 +1,7 @@
 package com.miireader.ui.bookshelf
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -41,6 +43,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import android.net.Uri
 import com.miireader.core.model.FilterMode
 import com.miireader.core.model.SortOrder
 import com.miireader.ui.components.EpaperButton
@@ -70,12 +73,31 @@ fun BookshelfScreen(
     onSortOrderSelected: (SortOrder) -> Unit,
     onBookClick: (String) -> Unit,
     onImportEpubClick: () -> Unit,
+    onImportUriSelected: (Uri) -> Unit,
     onNavigateToSettings: () -> Unit,
     onNavigateToCatalog: () -> Unit,
     onClearError: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var sortMenuExpanded by remember { mutableStateOf(false) }
+
+    // Storage Access Framework picker for EPUB import. The picked content:// URI
+    // is handed to the ViewModel, which copies it into app-private storage.
+    val importLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            onImportUriSelected(uri)
+        }
+    }
+
+    val launchImport = {
+        importLauncher.launch(arrayOf("application/epub+zip", "application/zip"))
+    }
+
+    // Override the plain click callback so both the empty-state button and the
+    // bottom action bar trigger the real SAF picker instead of the placeholder.
+    val handleImportClick = { launchImport() }
 
     Column(
         modifier = modifier
@@ -285,6 +307,14 @@ fun BookshelfScreen(
                         EpaperLoadingIndicator(text = "Loading Library...")
                     }
                 }
+                uiState.isImporting -> {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        EpaperLoadingIndicator(text = "Importing Book...")
+                    }
+                }
                 uiState.books.isEmpty() -> {
                     EpaperEmptyState(
                         title = if (uiState.searchQuery.isNotEmpty()) "No Matching Books" else "Library is Empty",
@@ -294,7 +324,7 @@ fun BookshelfScreen(
                             "You have not imported any EPUB books yet. Tap below to import a local book or browse OPDS catalogs."
                         },
                         actionButtonText = if (uiState.searchQuery.isNotEmpty()) null else "Import EPUB",
-                        onActionClick = onImportEpubClick
+                        onActionClick = handleImportClick
                     )
                 }
                 else -> {
@@ -336,8 +366,8 @@ fun BookshelfScreen(
                 )
 
                 EpaperButton(
-                    text = "+ Import EPUB",
-                    onClick = onImportEpubClick,
+                    text = if (uiState.isImporting) "Importing..." else "+ Import EPUB",
+                    onClick = handleImportClick,
                     style = EpaperButtonStyle.PRIMARY
                 )
             }
