@@ -20,8 +20,7 @@ class ViewModelFactory(
                     bookRepository = container.bookRepository,
                     bookImporter = container.bookImporter,
                     progressRepository = container.progressRepository,
-                    userPreferencesRepository = container.userPreferencesRepository,
-                    errorHandler = container.errorHandler
+                    userPreferencesRepository = container.userPreferencesRepository
                 ) as T
             }
             modelClass.isAssignableFrom(SettingsViewModel::class.java) -> {
@@ -40,8 +39,7 @@ class ViewModelFactory(
             modelClass.isAssignableFrom(DownloadsViewModel::class.java) -> {
                 DownloadsViewModel(
                     downloadRepository = container.downloadRepository,
-                    downloadManager = container.downloadManager,
-                    errorHandler = container.errorHandler
+                    downloadManager = container.downloadManager
                 ) as T
             }
             else -> throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")

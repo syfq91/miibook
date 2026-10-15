@@ -13,7 +13,7 @@ data class DownloadsUiState(
 
     /** Active (non-terminal) downloads. */
     val activeDownloads: List<DownloadItemUi>
-        get() = downloads.filter { !it.isTerminal }
+        get() = downloads.filter { it.isActive }
 
     /** Completed downloads. */
     val completedDownloads: List<DownloadItemUi>

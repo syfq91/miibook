@@ -21,11 +21,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.LocalLibrary
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.SwapVert
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
@@ -49,7 +49,6 @@ import com.miireader.core.model.FilterMode
 import com.miireader.core.model.SortOrder
 import com.miireader.ui.components.EpaperButton
 import com.miireader.ui.components.EpaperButtonStyle
-import com.miireader.ui.components.EpaperCard
 import com.miireader.ui.components.EpaperDivider
 import com.miireader.ui.components.EpaperEmptyState
 import com.miireader.ui.components.EpaperIconButton
@@ -79,7 +78,8 @@ fun BookshelfScreen(
     onNavigateToCatalog: () -> Unit,
     onNavigateToDownloads: () -> Unit,
     onClearError: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onDeleteBook: (String) -> Unit = {}
 ) {
     var sortMenuExpanded by remember { mutableStateOf(false) }
 
@@ -344,7 +344,8 @@ fun BookshelfScreen(
                         ) { book ->
                             BookRowItem(
                                 book = book,
-                                onClick = { onBookClick(book.id) }
+                                onClick = { onBookClick(book.id) },
+                                onDelete = { onDeleteBook(book.id) }
                             )
                             EpaperDivider(thickness = EpaperDimensions.BorderThin)
                         }
@@ -390,6 +391,7 @@ fun BookshelfScreen(
 fun BookRowItem(
     book: BookItemUi,
     onClick: () -> Unit,
+    onDelete: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val interactionSource = remember { MutableInteractionSource() }
@@ -458,6 +460,14 @@ fun BookRowItem(
             text = "Open",
             onClick = onClick,
             style = EpaperButtonStyle.OUTLINE
+        )
+
+        Spacer(modifier = Modifier.width(8.dp))
+
+        EpaperIconButton(
+            icon = Icons.Filled.Delete,
+            contentDescription = "Delete book",
+            onClick = onDelete
         )
     }
 }

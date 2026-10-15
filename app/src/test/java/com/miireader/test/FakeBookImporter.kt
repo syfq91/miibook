@@ -1,7 +1,6 @@
 package com.miireader.test
 
 import android.net.Uri
-import com.miireader.data.local.entity.BookEntity
 import com.miireader.data.repository.BookImporter
 import com.miireader.data.repository.ImportResult
 

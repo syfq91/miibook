@@ -13,7 +13,6 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.miireader.ui.theme.DarkGray
 import com.miireader.ui.theme.EpaperDimensions
 import com.miireader.ui.theme.LightBorderGray
 import com.miireader.ui.theme.NearBlack

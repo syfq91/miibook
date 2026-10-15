@@ -1,7 +1,6 @@
 package com.miireader.data.repository
 
 import com.miireader.data.local.dao.CatalogDao
-import com.miireader.data.local.entity.CatalogEntity
 import com.miireader.test.FakeCatalogDao
 import com.miireader.test.TestDispatchers
 import kotlinx.coroutines.flow.first

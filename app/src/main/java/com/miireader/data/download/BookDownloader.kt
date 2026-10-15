@@ -2,6 +2,8 @@ package com.miireader.data.download
 
 import java.io.File
 import java.io.IOException
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import org.readium.r2.shared.util.AbsoluteUrl
 import org.readium.r2.shared.util.Try
 import org.readium.r2.shared.util.http.DefaultHttpClient
@@ -69,6 +71,7 @@ class ReadiumBookDownloader(
             response.body.use { input ->
                 val buffer = ByteArray(DOWNLOAD_BUFFER_SIZE)
                 while (true) {
+                    currentCoroutineContext().ensureActive()
                     val read = input.read(buffer)
                     if (read < 0) break
                     output.write(buffer, 0, read)

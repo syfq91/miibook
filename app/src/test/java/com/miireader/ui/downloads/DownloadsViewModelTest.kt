@@ -1,6 +1,5 @@
 package com.miireader.ui.downloads
 
-import com.miireader.core.error.DefaultErrorHandler
 import com.miireader.data.local.DownloadStatus
 import com.miireader.test.FakeDownloadManager
 import com.miireader.test.FakeDownloadRepository
@@ -38,8 +37,7 @@ class DownloadsViewModelTest {
 
         viewModel = DownloadsViewModel(
             downloadRepository = downloadRepository,
-            downloadManager = downloadManager,
-            errorHandler = DefaultErrorHandler()
+            downloadManager = downloadManager
         )
     }
 

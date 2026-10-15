@@ -14,9 +14,6 @@ interface DownloadDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertDownload(download: DownloadEntity)
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertDownloads(downloads: List<DownloadEntity>)
-
     @Update
     suspend fun updateDownload(download: DownloadEntity)
 
@@ -32,8 +29,8 @@ interface DownloadDao {
     @Query("SELECT * FROM downloads WHERE status IN ('QUEUED', 'DOWNLOADING') ORDER BY created_date ASC")
     fun getActiveDownloadsFlow(): Flow<List<DownloadEntity>>
 
-    @Query("SELECT * FROM downloads WHERE status = :status ORDER BY created_date DESC")
-    fun getDownloadsByStatusFlow(status: String): Flow<List<DownloadEntity>>
+    @Query("SELECT * FROM downloads WHERE status IN ('QUEUED', 'DOWNLOADING') ORDER BY created_date ASC")
+    suspend fun getActiveDownloads(): List<DownloadEntity>
 
     @Query("SELECT * FROM downloads WHERE book_id = :bookId")
     suspend fun getDownloadByBookId(bookId: String): DownloadEntity?

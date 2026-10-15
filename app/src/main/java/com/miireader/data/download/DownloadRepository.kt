@@ -18,6 +18,9 @@ interface DownloadRepository {
     /** Only downloads that are not in a terminal state. */
     fun getActiveDownloads(): Flow<List<DownloadEntity>>
 
+    /** Active (queued or downloading) downloads read once, ordered oldest first. */
+    suspend fun getPendingDownloads(): List<DownloadEntity>
+
     /** A single download by its ID. */
     fun getDownloadByIdFlow(id: String): Flow<DownloadEntity?>
 
@@ -50,6 +53,9 @@ class DefaultDownloadRepository(
 
     override fun getActiveDownloads(): Flow<List<DownloadEntity>> =
         downloadDao.getActiveDownloadsFlow().flowOn(dispatchers.io)
+
+    override suspend fun getPendingDownloads(): List<DownloadEntity> =
+        withContext(dispatchers.io) { downloadDao.getActiveDownloads() }
 
     override fun getDownloadByIdFlow(id: String): Flow<DownloadEntity?> =
         downloadDao.getDownloadByIdFlow(id).flowOn(dispatchers.io)

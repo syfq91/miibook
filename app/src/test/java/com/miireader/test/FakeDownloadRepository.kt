@@ -6,8 +6,6 @@ import com.miireader.data.download.DownloadRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.flow.SharingStarted
 
 /**
  * [DownloadRepository] over an in-memory list.
@@ -30,6 +28,9 @@ class FakeDownloadRepository(
 
     override fun getActiveDownloads(): Flow<List<DownloadEntity>> =
         _downloads.map { list -> list.filter { !it.isTerminal }.sortedBy { it.createdDate } }
+
+    override suspend fun getPendingDownloads(): List<DownloadEntity> =
+        _downloads.value.filter { !it.isTerminal }.sortedBy { it.createdDate }
 
     override fun getDownloadByIdFlow(id: String): Flow<DownloadEntity?> =
         _downloads.map { list -> list.find { it.id == id } }

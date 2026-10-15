@@ -3,7 +3,6 @@ package com.miireader.ui.bookshelf
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.miireader.core.error.ErrorHandler
 import com.miireader.core.model.FilterMode
 import com.miireader.core.model.SortOrder
 import com.miireader.data.local.entity.BookEntity
@@ -24,8 +23,7 @@ class BookshelfViewModel(
     private val bookRepository: BookRepository,
     private val bookImporter: BookImporter,
     private val progressRepository: ProgressRepository,
-    private val userPreferencesRepository: UserPreferencesRepository,
-    private val errorHandler: ErrorHandler
+    private val userPreferencesRepository: UserPreferencesRepository
 ) : ViewModel() {
 
     private val _searchQuery = MutableStateFlow("")

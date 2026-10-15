@@ -1,6 +1,5 @@
 package com.miireader.ui.bookshelf
 
-import com.miireader.core.error.DefaultErrorHandler
 import com.miireader.core.model.FilterMode
 import com.miireader.core.model.SortOrder
 import com.miireader.data.local.entity.BookEntity
@@ -39,7 +38,6 @@ class BookshelfViewModelTest {
     private lateinit var bookImporter: FakeBookImporter
     private lateinit var progressRepository: FakeProgressRepository
     private lateinit var preferencesRepository: FakeUserPreferencesRepository
-    private lateinit var errorHandler: DefaultErrorHandler
     private lateinit var viewModel: BookshelfViewModel
 
     private val book1 = BookEntity(
@@ -72,14 +70,12 @@ class BookshelfViewModelTest {
             )
         )
         preferencesRepository = FakeUserPreferencesRepository()
-        errorHandler = DefaultErrorHandler()
 
         viewModel = BookshelfViewModel(
             bookRepository = bookRepository,
             bookImporter = bookImporter,
             progressRepository = progressRepository,
-            userPreferencesRepository = preferencesRepository,
-            errorHandler = errorHandler
+            userPreferencesRepository = preferencesRepository
         )
     }
 

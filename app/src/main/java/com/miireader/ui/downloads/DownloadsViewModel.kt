@@ -2,7 +2,6 @@ package com.miireader.ui.downloads
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.miireader.core.error.ErrorHandler
 import com.miireader.data.download.DownloadManager
 import com.miireader.data.download.DownloadRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -15,8 +14,7 @@ import kotlinx.coroutines.launch
 
 class DownloadsViewModel(
     private val downloadRepository: DownloadRepository,
-    private val downloadManager: DownloadManager,
-    private val errorHandler: ErrorHandler
+    private val downloadManager: DownloadManager
 ) : ViewModel() {
 
     private val _errorMessage = MutableStateFlow<String?>(null)

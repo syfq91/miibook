@@ -20,7 +20,6 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 /**
  * The download queue as the UI sees it.
@@ -75,8 +74,25 @@ class DefaultDownloadManager(
     private val downloadsChannel = Channel<DownloadEntity>(Channel.UNLIMITED)
 
     init {
-        // Start the worker coroutine
-        scope.launch { processQueue() }
+        // Recover pending downloads and start the worker coroutine
+        scope.launch {
+            recoverPendingDownloads()
+            processQueue()
+        }
+    }
+
+    private suspend fun recoverPendingDownloads() {
+        val pending = downloadRepository.getPendingDownloads()
+        for (download in pending) {
+            val queued = if (download.status == DownloadStatus.DOWNLOADING) {
+                val reset = download.copy(status = DownloadStatus.QUEUED)
+                downloadRepository.upsertDownload(reset)
+                reset
+            } else {
+                download
+            }
+            downloadsChannel.send(queued)
+        }
     }
 
     /**

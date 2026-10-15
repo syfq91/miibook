@@ -3,6 +3,7 @@ package com.miireader.data.download
 import android.content.Context
 import com.miireader.core.error.AppError
 import com.miireader.core.error.ErrorHandler
+import com.miireader.data.local.DownloadEntity
 import com.miireader.data.local.DownloadStatus
 import com.miireader.data.local.entity.BookEntity
 import com.miireader.data.opds.CatalogLink
@@ -240,6 +241,50 @@ class DefaultDownloadManagerTest {
             assertEquals(1f, retried.progress)
             assertNotNull(retried.bookId)
             assertEquals(1, bookRepository.getBookCount())
+        }
+
+    @Test
+    fun `pending and interrupted downloads are recovered on startup`() =
+        testScope.runTest {
+            manager.shutdown()
+
+            val queuedDownload = DownloadEntity(
+                id = "d-queued",
+                url = url,
+                title = "Queued Book",
+                author = "Author",
+                mediaType = "application/epub+zip",
+                status = DownloadStatus.QUEUED
+            )
+            val interruptedDownload = DownloadEntity(
+                id = "d-interrupted",
+                url = url,
+                title = "Interrupted Book",
+                author = "Author",
+                mediaType = "application/epub+zip",
+                status = DownloadStatus.DOWNLOADING
+            )
+            downloadRepository.upsertDownload(queuedDownload)
+            downloadRepository.upsertDownload(interruptedDownload)
+
+            val newManager = DefaultDownloadManager(
+                context = context,
+                downloadRepository = downloadRepository,
+                bookRepository = bookRepository,
+                metadataExtractor = metadataExtractor,
+                downloader = downloader,
+                errorHandler = errorHandler,
+                dispatchers = TestDispatchers(testDispatcher)
+            )
+
+            testDispatcher.scheduler.advanceUntilIdle()
+
+            val d1 = downloadRepository.getDownloadById("d-queued")!!
+            val d2 = downloadRepository.getDownloadById("d-interrupted")!!
+            assertEquals(DownloadStatus.COMPLETED, d1.status)
+            assertEquals(DownloadStatus.COMPLETED, d2.status)
+
+            newManager.shutdown()
         }
 }
 

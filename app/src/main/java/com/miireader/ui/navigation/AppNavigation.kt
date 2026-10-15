@@ -65,7 +65,8 @@ fun AppNavigation(
                 onNavigateToDownloads = {
                     navController.navigate(Screen.Downloads.route)
                 },
-                onClearError = viewModel::clearError
+                onClearError = viewModel::clearError,
+                onDeleteBook = viewModel::onDeleteBook
             )
         }
 

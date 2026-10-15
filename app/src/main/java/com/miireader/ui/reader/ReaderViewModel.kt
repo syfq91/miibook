@@ -95,6 +95,7 @@ class ReaderViewModel(
     private var publication: Publication? = null
     private var navigator: ReaderNavigator? = null
     private var positionJob: Job? = null
+    private var persistJob: Job? = null
     private var lastPersistedLocatorJson: String? = null
     private var pendingLocator: Locator? = null
 
@@ -253,7 +254,8 @@ class ReaderViewModel(
         if (json == lastPersistedLocatorJson) return
         lastPersistedLocatorJson = json
 
-        viewModelScope.launch {
+        persistJob?.cancel()
+        persistJob = viewModelScope.launch {
             progressRepository.saveProgress(
                 ReadingProgressEntity(
                     bookId = bookId,
@@ -344,6 +346,8 @@ class ReaderViewModel(
     override fun onCleared() {
         positionJob?.cancel()
         positionJob = null
+        persistJob?.cancel()
+        persistJob = null
         navigator = null
         pageTurnKeys.unregister()
 
