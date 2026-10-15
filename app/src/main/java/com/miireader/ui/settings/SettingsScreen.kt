@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -47,10 +46,7 @@ fun SettingsScreen(
     onNavigateBack: () -> Unit,
     onWarmBackgroundChanged: (Boolean) -> Unit,
     onFontSizeChanged: (Int) -> Unit,
-    onAnimationsToggled: (Boolean) -> Unit,
-    onRefreshIntervalChanged: (Int) -> Unit,
     onSortOrderChanged: (SortOrder) -> Unit,
-    onTriggerFullRefresh: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -105,109 +101,25 @@ fun SettingsScreen(
                     EpaperDivider(thickness = EpaperDimensions.BorderThin)
                     Spacer(modifier = Modifier.height(14.dp))
 
-                    // UI Animations
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Allow UI Animations",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = NearBlack
-                            )
-                            Text(
-                                text = "Keep disabled on e-paper to avoid ghosting and flicker",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = DarkGray
-                            )
-                        }
-                        EpaperSwitch(
-                            checked = uiState.animationsEnabled,
-                            onCheckedChange = onAnimationsToggled
+                    // Screen refresh guidance. MiiReader has no verified vendor refresh API
+                    // (see platform/epaper/EpaperController), so this points at the device's
+                    // own controls instead of offering a button that cannot work.
+                    Column {
+                        Text(
+                            text = "Screen Refresh",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = NearBlack
+                        )
+                        Text(
+                            text = "MiiReader does not change how your display refreshes. " +
+                                "If a page leaves ghosting behind, use the refresh mode or " +
+                                "full-refresh control in your device's system settings.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = DarkGray
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(14.dp))
-                    EpaperDivider(thickness = EpaperDimensions.BorderThin)
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    // Full Refresh Page Interval
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Full Screen Refresh",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = NearBlack
-                            )
-                            Text(
-                                text = if (uiState.refreshIntervalPages > 0) "Every ${uiState.refreshIntervalPages} pages" else "Manual refresh only",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = DarkGray
-                            )
-                        }
-
-                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                            listOf(0, 5, 10, 20).forEach { pages ->
-                                val isSelected = uiState.refreshIntervalPages == pages
-                                Surface(
-                                    modifier = Modifier.clickable(
-                                        indication = null,
-                                        interactionSource = remember { MutableInteractionSource() },
-                                        onClick = { onRefreshIntervalChanged(pages) }
-                                    ),
-                                    shape = RoundedCornerShape(EpaperDimensions.CornerSmall),
-                                    color = if (isSelected) InvertedBackground else MaterialTheme.colorScheme.surface,
-                                    border = BorderStroke(EpaperDimensions.BorderThin, NearBlack)
-                                ) {
-                                    Text(
-                                        text = if (pages == 0) "Off" else "$pages",
-                                        color = if (isSelected) InvertedText else NearBlack,
-                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                        fontSize = 12.sp,
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(14.dp))
-                    EpaperDivider(thickness = EpaperDimensions.BorderThin)
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    // Manual Full Refresh Action
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Flash Refresh Now",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = NearBlack
-                            )
-                            Text(
-                                text = "Clears residual ghosting immediately",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = DarkGray
-                            )
-                        }
-                        EpaperButton(
-                            text = "Refresh",
-                            onClick = onTriggerFullRefresh,
-                            style = EpaperButtonStyle.OUTLINE
-                        )
-                    }
                 }
             }
 
@@ -326,10 +238,10 @@ fun SettingsScreen(
                     DeviceInfoRow(label = "Hardware Manufacturer", value = uiState.deviceManufacturer.ifBlank { "Standard Android" })
                     DeviceInfoRow(label = "Hardware Model", value = uiState.deviceModel.ifBlank { "Generic Device" })
                     DeviceInfoRow(
-                        label = "E-Paper Profile",
-                        value = if (uiState.isEpaperDevice) "Detected (E-Ink device profile active)" else "Standard Profile (Compatibility mode)"
+                        label = "E-Paper Screen",
+                        value = if (uiState.isEpaperDevice) "Detected" else "Not detected"
                     )
-                    DeviceInfoRow(label = "Application Version", value = "0.1.0-phase1")
+                    DeviceInfoRow(label = "Application Version", value = "0.1.0")
                 }
             }
 

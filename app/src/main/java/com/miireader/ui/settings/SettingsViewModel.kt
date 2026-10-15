@@ -21,8 +21,6 @@ class SettingsViewModel(
             SettingsUiState(
                 warmBackground = prefs.warmBackground,
                 fontSizeSp = prefs.fontSizeSp,
-                animationsEnabled = prefs.animationsEnabled,
-                refreshIntervalPages = prefs.refreshIntervalPages,
                 defaultSortOrder = prefs.sortOrder,
                 deviceManufacturer = epaperController.deviceManufacturer,
                 deviceModel = epaperController.deviceModel,
@@ -51,25 +49,9 @@ class SettingsViewModel(
         }
     }
 
-    fun onAnimationsToggled(enabled: Boolean) {
-        viewModelScope.launch {
-            userPreferencesRepository.setAnimationsEnabled(enabled)
-        }
-    }
-
-    fun onRefreshIntervalChanged(pages: Int) {
-        viewModelScope.launch {
-            userPreferencesRepository.setRefreshIntervalPages(pages)
-        }
-    }
-
     fun onSortOrderChanged(order: SortOrder) {
         viewModelScope.launch {
             userPreferencesRepository.setSortOrder(order)
         }
-    }
-
-    fun onTriggerFullRefresh() {
-        epaperController.requestFullRefresh()
     }
 }

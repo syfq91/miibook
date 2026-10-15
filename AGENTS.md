@@ -151,6 +151,16 @@ control is Phase 5 and requires a confirmed manufacturer SDK.
   alive, then assert on `.value` rather than on values captured from the
   collected stream — see `ReaderViewModelTest.activate`.
 - There is no instrumentation test suite yet beyond the default scaffolding.
+- **E-paper UI rules are machine-enforced** by `ui/EpaperUiConstraintTest`, which
+  reads the real sources under `app/src/main/java/com/miireader` and fails the
+  build on animation APIs, animated NavHost transitions, clickables without
+  `indication = null`, gradients/blur/shadow/translucent colors/non-zero
+  elevation, spinning loaders or polling in `ui/`, lazy lists without `key =`,
+  non-`sp` text sizes, `fontScale` overrides, a `MinTouchTarget` other than 48dp,
+  and Settings copy that promises refresh behaviour MiiReader cannot deliver. If
+  you add UI that trips it, fix the UI — do not relax the test.
+  `ui/theme/EpaperThemeTest` separately asserts WCAG contrast and full opacity of
+  the palette, computed from the real `Color` values.
 
 ## Git
 
@@ -163,13 +173,21 @@ control is Phase 5 and requires a confirmed manufacturer SDK.
 ## Current status
 
 Phase 1 (foundation), Phase 2 (local EPUB library + SAF import), Phase 3 (EPUB
-reader) and Phase 4 (OPDS catalog browser + downloads) are done. Phase 4 adds the
-catalog screen backed by `data/opds/` (Readium's OPDS parsers behind an
-`OpdsHttpClient` interface), a Room-persisted download queue in `data/download/`
-whose worker validates and imports each EPUB into the library, and a downloads
-screen. `plan.md` carries the phase notes and verification limits.
+reader), Phase 4 (OPDS catalog browser + downloads) and Phase 5 (e-paper
+optimization) are done. Phase 5 = an audit whose rules now live in
+`EpaperUiConstraintTest`/`EpaperThemeTest`, removal of three Settings controls
+that advertised refresh/animation behaviour no verified API provides
+(`animationsEnabled` and `refreshIntervalPages` preferences deleted), and a
+documented evaluation of vendor refresh APIs: BOOX/Onyx has a vendor SDK on an
+HTTP-only Maven repo with pre-AndroidX deps, Bigme has none documented, Android
+itself has none — so **no vendor integration was implemented** and
+`platform/epaper/EpaperController` remains a vendor-neutral no-op seam.
+`plan.md`'s Phase 5 section carries the sources and the integration path to
+follow if hardware ever confirms the SDK.
 
 **Verification is unit tests plus `assembleDebug` only** — there is no device or
 emulator on this machine. Page rendering, hardware page-turn keys, rotation,
-e-paper refresh, *and every Phase 4 network and download path* have **not** been
-observed on hardware; never claim any of them work without testing them.
+e-paper refresh, *every Phase 4 network and download path*, and *all Phase 5
+device behaviour (refresh modes, ghosting, font scaling on-panel, density and
+margin tuning)* have **not** been observed on hardware; never claim any of them
+work without testing them.

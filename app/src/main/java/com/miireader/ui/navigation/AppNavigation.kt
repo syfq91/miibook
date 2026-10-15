@@ -1,13 +1,11 @@
 package com.miireader.ui.navigation
 
-import android.widget.Toast
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -32,8 +30,6 @@ fun AppNavigation(
     viewModelFactory: ViewModelFactory,
     modifier: Modifier = Modifier
 ) {
-    val context = LocalContext.current
-
     NavHost(
         navController = navController,
         startDestination = Screen.Bookshelf.route,
@@ -116,13 +112,7 @@ fun AppNavigation(
                 },
                 onWarmBackgroundChanged = viewModel::onWarmBackgroundChanged,
                 onFontSizeChanged = viewModel::onFontSizeChanged,
-                onAnimationsToggled = viewModel::onAnimationsToggled,
-                onRefreshIntervalChanged = viewModel::onRefreshIntervalChanged,
-                onSortOrderChanged = viewModel::onSortOrderChanged,
-                onTriggerFullRefresh = {
-                    viewModel.onTriggerFullRefresh()
-                    Toast.makeText(context, "Full refresh requested", Toast.LENGTH_SHORT).show()
-                }
+                onSortOrderChanged = viewModel::onSortOrderChanged
             )
         }
 

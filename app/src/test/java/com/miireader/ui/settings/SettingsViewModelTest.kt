@@ -86,34 +86,6 @@ class SettingsViewModelTest {
     }
 
     @Test
-    fun animationsToggleUpdatesState() = testScope.runTest {
-        val collectJob = launch { viewModel.uiState.collect {} }
-        testDispatcher.scheduler.advanceUntilIdle()
-
-        assertFalse(viewModel.uiState.value.animationsEnabled)
-
-        viewModel.onAnimationsToggled(true)
-        testDispatcher.scheduler.advanceUntilIdle()
-
-        assertTrue(viewModel.uiState.value.animationsEnabled)
-        collectJob.cancel()
-    }
-
-    @Test
-    fun refreshIntervalChangeUpdatesState() = testScope.runTest {
-        val collectJob = launch { viewModel.uiState.collect {} }
-        testDispatcher.scheduler.advanceUntilIdle()
-
-        assertEquals(10, viewModel.uiState.value.refreshIntervalPages)
-
-        viewModel.onRefreshIntervalChanged(20)
-        testDispatcher.scheduler.advanceUntilIdle()
-
-        assertEquals(20, viewModel.uiState.value.refreshIntervalPages)
-        collectJob.cancel()
-    }
-
-    @Test
     fun sortOrderChangeUpdatesState() = testScope.runTest {
         val collectJob = launch { viewModel.uiState.collect {} }
         testDispatcher.scheduler.advanceUntilIdle()

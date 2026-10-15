@@ -292,15 +292,82 @@ Test visual ghosting and refresh behavior on physical hardware. Compose-level op
 > have **not** been exercised on a device and must not be claimed to work.
 
 ### Phase 5: E-Paper Optimization
-- [ ] Audit the app for animations and unnecessary visual changes.
-- [ ] Test font scaling, high contrast, and touch target sizes.
+- [x] Audit the app for animations and unnecessary visual changes.
+- [x] Test font scaling, high contrast, and touch target sizes.
 - [ ] Validate physical button navigation on supported devices.
 - [ ] Test on representative BOOX and Bigme devices.
-- [ ] Evaluate device refresh settings and supported vendor APIs.
-- [ ] Implement only documented hardware integrations.
+- [x] Evaluate device refresh settings and supported vendor APIs.
+- [x] Implement only documented hardware integrations.
 - [ ] Tune list density and reader margins based on actual display dimensions.
 
 > **Deliverable:** A stable, readable application optimized for physical e-paper hardware.
+
+> **Audit (done, and now machine-enforced).** `EpaperUiConstraintTest` reads the real
+> sources under `app/src/main/java/com/miireader` and fails the build if a forbidden
+> construct returns: any animation API, any animated NavHost transition (the host keeps
+> `EnterTransition.None` / `ExitTransition.None` for all four transitions), any clickable
+> without `indication = null`, gradients/blur/shadow/explicit alpha/translucent color
+> literals/non-zero elevation, spinning loaders or polling loops in `ui/`, lazy list
+> `items(...)` without a `key =`, text sizes not in `sp`, a `fontScale` override, a touch
+> target baseline other than 48dp, and Settings copy that advertises refresh behaviour
+> MiiReader cannot deliver. The test was mutation-checked: injecting `AnimatedVisibility`
+> into a screen makes it fail. `EpaperThemeTest` computes WCAG contrast from the real
+> palette `Color` values — text pairings clear 4.5:1 (AA), borders are floored at 1.4:1,
+> and every palette color must be fully opaque.
+>
+> **Three Settings controls were removed because they promised what no verified API can
+> deliver:** "Allow UI Animations" (nothing consumed the preference, and animations are
+> forbidden by design), "Full Screen Refresh every N pages" (nothing consumed it, and
+> section 6 says to avoid automatic refresh timers), and "Flash Refresh Now", whose
+> handler was a no-op while the UI claimed it "Clears residual ghosting immediately" — a
+> direct violation of the rule against claiming unverified refresh control works. The
+> `animationsEnabled` and `refreshIntervalPages` preferences were deleted with their
+> DataStore keys, and the diagnostics row that reported an "E-Ink device profile active"
+> now says plainly whether an e-paper device was detected. Settings instead carries
+> static guidance pointing at the device's own refresh controls, which is what section 6
+> prescribes when no supported refresh API exists.
+>
+> **Vendor API evaluation (2026-10-15), sources recorded so this need not be redone:**
+> - Android defines **no** public e-ink refresh API — nothing in AOSP controls panel
+>   refresh modes, GC flashes, or ghosting.
+> - **Onyx/BOOX publishes a vendor SDK**: `com.onyx.android.sdk:onyxsdk-device` (1.1.11
+>   probed live, HTTP 200) on `http://repo.boox.com/repository/maven-public/` — an
+>   **HTTP-only** repository — documented in `github.com/onyx-intl/OnyxAndroidDemo`
+>   (`EpdController` "EPD Screen Update API", `EpdDeviceManager`, `RefreshMode` demo).
+>   Its POM pulls pre-AndroidX artifacts (`com.android.support:multidex`,
+>   `support-annotations:28.0.0`), so consuming it needs an insecure-repo opt-in plus
+>   jetifier, and it is **BOOX-only**. Hidden variants exist
+>   (`android.onyx.optimization.EInkHelper.setAppScopeRefreshMode`) and are explicitly
+>   forbidden here.
+> - **Bigme has no documented public refresh SDK.** Community integrations reach it via
+>   boot-classpath/reflective vendor calls, also forbidden.
+> - BOOX's own manual states system-level refresh mode **overrides** app refresh mode,
+>   so the system settings are the correct place for users to control refresh.
+>
+> **Decision: no vendor integration was implemented.** Nothing can be exercised on a
+> machine with no e-paper hardware, and the only documented SDK is single-vendor and
+> would put an insecure repository plus legacy support libraries into the build. A
+> candidate that is untestable here must not ship while the project's rule is "never
+> claim an unverified feature (especially hardware refresh control) works".
+> `platform/epaper/EpaperController` therefore stays a vendor-neutral no-op seam (with
+> `DefaultEpaperControllerTest` pinning that contract), and no Settings control exposes
+> it. If a BOOX unit later confirms the SDK, the recorded path is: add
+> `repo.boox.com` with `isAllowInsecureProtocol = true`, add `onyxsdk-device` behind
+> jetifier, implement `OnyxEpaperController`, and keep the default implementation for
+> every other vendor — never a shared assumption across BOOX and Bigme.
+>
+> **Still requires hardware (do not claim these work):** physical page-turn key
+> dispatch through `MainActivity.dispatchKeyEvent` (the `PageTurnKeys` decision logic
+> and the reader-side handler are unit-tested, but no real `KeyEvent` has traversed an
+> Activity), e-paper detection against real device `Build` strings, refresh/ghosting
+> behaviour in every mode, rotation and page-render quality on an e-ink panel, system
+> font scaling at large accessibility sizes, list density and reader margins against
+> actual display dimensions (they are fixed dp today — tuning is the remaining
+> checkbox), and the warm-white background's appearance on a grayscale e-ink panel.
+> One measured finding is already recorded for that pass: the `#CCCCCC` hairline border
+> sits at 1.61:1 on white but only 1.47:1 on the warm background, so border contrast is
+> worth revisiting when a device is available.
+> The suite is at **100 unit tests**, all green, plus a clean `assembleDebug`.
 
 ### Phase 6: Hardening and Release
 - [ ] Add database migration tests.

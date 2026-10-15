@@ -28,14 +28,6 @@ class FakeUserPreferencesRepository(
         _preferences.value = _preferences.value.copy(readerTheme = theme)
     }
 
-    override suspend fun setAnimationsEnabled(enabled: Boolean) {
-        _preferences.value = _preferences.value.copy(animationsEnabled = enabled)
-    }
-
-    override suspend fun setRefreshIntervalPages(pages: Int) {
-        _preferences.value = _preferences.value.copy(refreshIntervalPages = pages)
-    }
-
     override suspend fun setSortOrder(order: SortOrder) {
         _preferences.value = _preferences.value.copy(sortOrder = order)
     }
