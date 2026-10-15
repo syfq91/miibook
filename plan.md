@@ -370,16 +370,73 @@ Test visual ghosting and refresh behavior on physical hardware. Compose-level op
 > The suite is at **100 unit tests**, all green, plus a clean `assembleDebug`.
 
 ### Phase 6: Hardening and Release
-- [ ] Add database migration tests.
-- [ ] Test malformed, large, and unsupported EPUBs.
-- [ ] Test network failures, interrupted downloads, and invalid OPDS feeds.
-- [ ] Test configuration changes and activity recreation.
-- [ ] Test offline reading and progress restoration.
+- [x] Add database migration tests.
+- [x] Test malformed, large, and unsupported EPUBs.
+- [x] Test network failures, interrupted downloads, and invalid OPDS feeds.
+- [x] Test configuration changes and activity recreation.
+- [x] Test offline reading and progress restoration.
 - [ ] Profile memory use and EPUB rendering performance.
-- [ ] Document known device-specific limitations.
-- [ ] Produce a release build and setup documentation.
+- [x] Document known device-specific limitations.
+- [x] Produce a release build and setup documentation.
 
 > **Deliverable:** A tested release candidate with documented limitations.
+
+> **Scope of this phase:** every checkbox except profiling is complete *as far as a
+> machine without hardware or an emulator can take it*. The suite grew 101 -> **131
+> tests**, all green, and both `assembleDebug` and `assembleRelease` build.
+>
+> **What the new tests cover**
+> - `AppDatabaseMigrationTest` — because no migrations exist, the destructive-fallback
+>   contract is pinned: a real v1 and a real v2 SQLite file (schemas reconstructed from
+>   git history) open at v3 **without crashing** with legacy rows dropped, a fresh install
+>   starts empty at v3, and books/progress/bookmarks survive closing and reopening
+>   (process-death path).
+> - `EpubValidationTest` + `BookImporterRobolectricTest` (real Readium, real Room, real
+>   `content://` stream) — valid EPUB metadata, random bytes, a non-EPUB zip, an empty
+>   file, a plain-text file named `.epub`, a missing file, a **150-chapter** book, an EPUB
+>   with an image and an embedded font, plus full import, duplicate detection, and
+>   cleanup-after-rejection.
+> - `ReadiumOpdsHttpClientTest` — the only production network code, exercised over a real
+>   **loopback** HTTP server: 200 bodies, redirect following, 404/500 status wording,
+>   an HTML page served with 200 rejected by the parser, connection refused, and an
+>   address with no scheme. Two more download tests cover a transfer interrupted
+>   **mid-stream** (fails cleanly, no partial import, no scratch file, typed
+>   `NetworkError`, retried to completion afterwards).
+> - `MainActivityRecreationTest` — full activity recreation through
+>   `onCreate(savedInstanceState)` (the Readium dummy-fragment path), plus the manifest
+>   `configChanges` contract that keeps the WebView alive across rotation.
+> - `OfflineReadingRestorationTest` — a generated EPUB in app-private storage opened by
+>   the production publication repository with no network in the path, progress and
+>   bookmarks restored after the database restarts, and FK cascade on book deletion.
+>
+> **Two production bugs these tests caught, both fixed**
+> 1. `ReadiumEpubMetadataExtractor` used `Contributor.toString()` for authors, so every
+>    imported book stored the whole data class as its author (e.g.
+>    `Contributor(localizedName=...)` instead of the real name). Now
+>    `localizedName?.string`, verified against the 3.3.0 bytecode.
+> 2. `DefaultBookImporter` returned failure for empty and unparseable files **without
+>    deleting the `import_*.epub` scratch file**, contradicting its own class doc —
+>    rejected imports silently accumulated orphaned files in app-private storage. Fixed
+>    and asserted by both rejection tests.
+>
+> **Release build (decisions taken deliberately):** `assembleRelease` produces
+> `app/build/outputs/apk/release/app-release-unsigned.apk` (20 MB; debug is 29 MB).
+> It is **unsigned** (signing docs + env-var wiring in README; keystores must never enter
+> the repo) and **not minified** — Readium 3.3.0 ships no consumer ProGuard rules and no
+> device exists here to catch a class R8 stripped in error, so release behaviour stays
+> identical to the tested debug build. `app/proguard-rules.pro` holds the commented
+> starting rules for when R8 is enabled. There is no `testReleaseUnitTest` task in
+> AGP 9, so release verification is compilation + packaging plus the debug-variant suite.
+>
+> **Docs delivered:** `LIMITATIONS.md` (verification matrix, nine device-specific
+> limitation areas, first-hardware bring-up checklist), README rewrites (build/signing
+> docs, current feature list, 131-test overview).
+>
+> **Still open — needs hardware, do not claim otherwise:** the profiling checkbox (no
+> device to measure memory or rendering on), and the Definition-of-Done item "verified on
+> at least one target e-paper device", which is **not met** — 1–8 of the `LIMITATIONS.md`
+> §3 checklist are the gate. Robolectric recreation is not a real rotation; the loopback
+> server is not the real internet; fixtures are not real-world DRM'd EPUBs.
 
 ---
 

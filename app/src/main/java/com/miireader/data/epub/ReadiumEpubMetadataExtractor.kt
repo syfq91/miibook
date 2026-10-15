@@ -57,7 +57,11 @@ class ReadiumEpubMetadataExtractor(
             val metadata = publication.metadata
             val title = metadata.title?.takeIf { it.isNotBlank() }
                 ?: file.nameWithoutExtension.ifBlank { "Untitled" }
-            val author = metadata.authors.firstOrNull()?.toString()?.takeIf { it.isNotBlank() }
+            // Metadata.authors is a List<Contributor>; Contributor.toString() prints the
+            // whole data class, so read the display name from localizedName instead
+            // (same approach as OpdsFeedParser).
+            val author = metadata.authors.firstOrNull()?.localizedName?.string
+                ?.takeIf { it.isNotBlank() }
                 ?: "Unknown Author"
 
             EpubMetadata(title = title, author = author)

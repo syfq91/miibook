@@ -18,6 +18,7 @@ refresh control) works.
 
 ```sh
 ./gradlew assembleDebug          # debug APK -> app/build/outputs/apk/debug/
+./gradlew assembleRelease        # unsigned release APK -> app/build/outputs/apk/release/
 ./gradlew testDebugUnitTest      # local unit tests
 ./gradlew :app:compileDebugKotlin  # fast compile check
 ```
@@ -27,6 +28,10 @@ refresh control) works.
 - Local unit tests that need a real `Uri`/`Context` run under **Robolectric**.
   Annotate the class `@RunWith(RobolectricTestRunner::class)` and
   `@Config(sdk = [34])`.
+- AGP 9 creates **no `testReleaseUnitTest`** task — release verification is
+  `assembleRelease` (compilation + packaging) plus the debug-variant suite.
+  Release is unsigned and intentionally **not** minified (R8 off; see
+  `app/proguard-rules.pro` header and `LIMITATIONS.md` §2.6).
 
 ## Version pins — do not "upgrade" without reading this
 
@@ -151,6 +156,16 @@ control is Phase 5 and requires a confirmed manufacturer SDK.
   alive, then assert on `.value` rather than on values captured from the
   collected stream — see `ReaderViewModelTest.activate`.
 - There is no instrumentation test suite yet beyond the default scaffolding.
+- **`RoomDatabase` does not implement `Closeable`** — `AppDatabase.create(...).use { }`
+  does not compile. Close databases explicitly in `try { } finally { }` (or an
+  `@After`).
+- **Never let tests reach the real internet.** Network behaviour is covered with
+  fixtures (`test/EpubFixtures.kt` for EPUBs, `data/opds/OpdsFixtures.kt` for
+  feeds) and a loopback `com.sun.net.httpserver` server
+  (`data/opds/ReadiumOpdsHttpClientTest`).
+- Failed imports must not leave scratch files: `DefaultBookImporter` deletes its
+  `import_*.epub` temp file on **every** exit path, and
+  `BookImporterRobolectricTest` asserts `booksDir` is empty after each rejection.
 - **E-paper UI rules are machine-enforced** by `ui/EpaperUiConstraintTest`, which
   reads the real sources under `app/src/main/java/com/miireader` and fails the
   build on animation APIs, animated NavHost transitions, clickables without
@@ -173,21 +188,35 @@ control is Phase 5 and requires a confirmed manufacturer SDK.
 ## Current status
 
 Phase 1 (foundation), Phase 2 (local EPUB library + SAF import), Phase 3 (EPUB
-reader), Phase 4 (OPDS catalog browser + downloads) and Phase 5 (e-paper
-optimization) are done. Phase 5 = an audit whose rules now live in
-`EpaperUiConstraintTest`/`EpaperThemeTest`, removal of three Settings controls
-that advertised refresh/animation behaviour no verified API provides
-(`animationsEnabled` and `refreshIntervalPages` preferences deleted), and a
-documented evaluation of vendor refresh APIs: BOOX/Onyx has a vendor SDK on an
-HTTP-only Maven repo with pre-AndroidX deps, Bigme has none documented, Android
-itself has none — so **no vendor integration was implemented** and
-`platform/epaper/EpaperController` remains a vendor-neutral no-op seam.
-`plan.md`'s Phase 5 section carries the sources and the integration path to
-follow if hardware ever confirms the SDK.
+reader), Phase 4 (OPDS catalog browser + downloads), Phase 5 (e-paper
+optimization) and Phase 6 (hardening and release) are implemented. Phase 5 = an
+audit whose rules now live in `EpaperUiConstraintTest`/`EpaperThemeTest`,
+removal of three Settings controls that advertised refresh/animation behaviour
+no verified API provides (`animationsEnabled` and `refreshIntervalPages`
+preferences deleted), and a documented evaluation of vendor refresh APIs:
+BOOX/Onyx has a vendor SDK on an HTTP-only Maven repo with pre-AndroidX deps,
+Bigme has none documented, Android itself has none — so **no vendor integration
+was implemented** and `platform/epaper/EpaperController` remains a
+vendor-neutral no-op seam. `plan.md`'s Phase 5 section carries the sources and
+the integration path to follow if hardware ever confirms the SDK.
 
-**Verification is unit tests plus `assembleDebug` only** — there is no device or
-emulator on this machine. Page rendering, hardware page-turn keys, rotation,
-e-paper refresh, *every Phase 4 network and download path*, and *all Phase 5
-device behaviour (refresh modes, ghosting, font scaling on-panel, density and
-margin tuning)* have **not** been observed on hardware; never claim any of them
-work without testing them.
+Phase 6 added the hardening suite (131 tests total): destructive-migration
+tests for v1/v2 databases, malformed/large/unsupported EPUB fixtures against
+real Readium, real imports over `content://` streams, loopback HTTP tests for
+every network failure mode, mid-stream interruption of downloads, offline
+reading + progress restoration across a database restart, and activity
+recreation. It also **produced the release build** (`assembleRelease` →
+unsigned, unminified APK; signing docs in README) and `LIMITATIONS.md`, which
+is the canonical list of device-specific gaps and the first-hardware bring-up
+checklist. Two bugs those tests caught are fixed: author metadata came from
+`Contributor.toString()`, and rejected imports leaked `import_*.epub` scratch
+files.
+
+**Verification is unit tests plus `assembleDebug`/`assembleRelease` only** —
+there is no device or emulator on this machine. Page rendering, hardware
+page-turn keys, rotation, e-paper refresh, *every Phase 4 network and download
+path against the real internet*, *all Phase 5 device behaviour*, memory and
+rendering performance, and R8-minified release behaviour have **not** been
+observed on hardware; never claim any of them work without testing them. The
+Definition-of-Done item "verified on at least one target e-paper device" is
+**not met** — the gate is `LIMITATIONS.md` §3.

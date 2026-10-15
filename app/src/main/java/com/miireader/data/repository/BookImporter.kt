@@ -49,6 +49,9 @@ class DefaultBookImporter(
             copyUriToFile(uri, tempFile)
 
             if (tempFile.length() == 0L) {
+                // Every early return drops the scratch copy too, so a rejected import
+                // never leaves an orphan behind (see the class doc).
+                tempFile.delete()
                 return@withContext ImportResult.Failure("The selected file is empty.")
             }
 
@@ -57,6 +60,7 @@ class DefaultBookImporter(
             val metadata = try {
                 metadataExtractor.extractFrom(tempFile.absolutePath)
             } catch (e: PublicationOpenException) {
+                tempFile.delete()
                 return@withContext ImportResult.Failure(e.message ?: "The file could not be opened.")
             }
 

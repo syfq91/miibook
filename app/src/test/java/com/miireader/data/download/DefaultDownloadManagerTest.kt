@@ -1,7 +1,8 @@
 package com.miireader.data.download
 
 import android.content.Context
-import com.miireader.core.error.DefaultErrorHandler
+import com.miireader.core.error.AppError
+import com.miireader.core.error.ErrorHandler
 import com.miireader.data.local.DownloadStatus
 import com.miireader.data.local.entity.BookEntity
 import com.miireader.data.opds.CatalogLink
@@ -14,6 +15,8 @@ import java.io.File
 import java.io.IOException
 import java.security.MessageDigest
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
@@ -47,7 +50,7 @@ class DefaultDownloadManagerTest {
     private lateinit var bookRepository: FakeBookRepository
     private lateinit var metadataExtractor: FakeEpubMetadataExtractor
     private lateinit var downloader: FakeBookDownloader
-    private lateinit var errorHandler: DefaultErrorHandler
+    private lateinit var errorHandler: RecordingErrorHandler
     private lateinit var manager: DefaultDownloadManager
 
     private val url = "https://catalog.example.org/moby-dick.epub"
@@ -60,7 +63,7 @@ class DefaultDownloadManagerTest {
         bookRepository = FakeBookRepository()
         metadataExtractor = FakeEpubMetadataExtractor()
         downloader = FakeBookDownloader(mapOf(url to body))
-        errorHandler = DefaultErrorHandler()
+        errorHandler = RecordingErrorHandler()
         manager = DefaultDownloadManager(
             context = context,
             downloadRepository = downloadRepository,
@@ -193,5 +196,69 @@ class DefaultDownloadManagerTest {
 
         assertNull(id)
         assertTrue(downloader.requestedUrls.isEmpty())
+    }
+
+    @Test
+    fun `an interrupted transfer fails without importing partial bytes`() = testScope.runTest {
+        val id = manager.enqueueDownload(epubLink(), "Moby Dick", null)!!
+        // Bytes are already half written when the connection dies mid-transfer.
+        downloader.midwayHook = { throw IOException("The connection broke mid-transfer.") }
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val row = downloadRepository.getDownloadById(id)!!
+        assertEquals(DownloadStatus.FAILED, row.status)
+        assertEquals("The connection broke mid-transfer.", row.errorMessage)
+        assertNull(row.bookId)
+        assertNull(row.tempFilePath)
+
+        // Nothing half-finished reaches the library, and the scratch file is cleaned up.
+        assertEquals(0, bookRepository.getBookCount())
+        assertFalse(File(context.filesDir, "downloads/$id.tmp").exists())
+
+        // The failure reaches the error stream typed as a network problem, once.
+        val networkErrors = errorHandler.received.filterIsInstance<AppError.NetworkError>()
+        assertEquals(
+            listOf("The connection broke mid-transfer."),
+            networkErrors.map { it.message }
+        )
+    }
+
+    @Test
+    fun `an interrupted transfer can be retried once the connection recovers`() =
+        testScope.runTest {
+            val id = manager.enqueueDownload(epubLink(), "Moby Dick", null)!!
+            downloader.midwayHook = { throw IOException("reset by peer") }
+            testDispatcher.scheduler.advanceUntilIdle()
+            assertEquals(DownloadStatus.FAILED, downloadRepository.getDownloadById(id)!!.status)
+
+            downloader.midwayHook = {}
+            manager.retryDownload(id)
+            testDispatcher.scheduler.advanceUntilIdle()
+
+            val retried = downloadRepository.getDownloadById(id)!!
+            assertEquals(DownloadStatus.COMPLETED, retried.status)
+            assertEquals(1f, retried.progress)
+            assertNotNull(retried.bookId)
+            assertEquals(1, bookRepository.getBookCount())
+        }
+}
+
+/**
+ * [ErrorHandler] that keeps every emitted error so tests can assert on typing and
+ * wording. A replay buffer means nothing is lost if a collector subscribes late.
+ */
+private class RecordingErrorHandler : ErrorHandler {
+    private val _errors = MutableSharedFlow<AppError>(replay = 8, extraBufferCapacity = 8)
+    override val errors: SharedFlow<AppError> = _errors
+    val received = mutableListOf<AppError>()
+
+    override suspend fun emitError(error: AppError) {
+        received += error
+        _errors.emit(error)
+    }
+
+    override fun tryEmitError(error: AppError): Boolean {
+        received += error
+        return _errors.tryEmit(error)
     }
 }

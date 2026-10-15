@@ -7,10 +7,11 @@ gradients that look bad and cause ghosting on e-ink displays.
 Inspired by CrossPoint Reader's reading-focused design, but built as a native
 Android app — not a firmware reproduction.
 
-**Status:** v0.1.0 — Phase 3 of 6 complete. You can import local EPUB files into
-an offline library and read them. Note that the reader has been verified with
-unit tests and a debug build only — it has not yet been run on e-paper
-hardware.
+**Status:** v0.1.0 — all six phases of [`plan.md`](plan.md) implemented; this is
+a **release candidate**, not a verified product. Everything is backed by 131
+local unit tests plus debug/release builds — but no device or emulator exists
+on the build machine, so nothing has been observed on e-paper hardware. Read
+[`LIMITATIONS.md`](LIMITATIONS.md) before trusting anything on a real device.
 
 ## Features
 
@@ -23,7 +24,8 @@ hardware.
 - Search by title and author
 - Filter by All / Recent / Unread
 - Sort by last-opened, title, or author
-- E-paper theme: pure monochrome, high contrast, no animations or shadows
+- E-paper theme: pure monochrome, high contrast, no animations or shadows —
+  enforced by a source-scanning test so regressions fail the build
 - Warm-white / pure-white background toggle
 - Static, non-animated progress indicators and screen transitions
 - Reading screen built on Readium's WebView navigator (paginated, no Compose
@@ -32,15 +34,24 @@ hardware.
   `PAGE_DOWN`)
 - Table of contents and chapter navigation
 - Font-size adjustment and Light / Dark / Sepia page themes
-- Bookmarks — create, list, jump to, remove
+- Bookmarks — create, list, jump, remove
 - Reading position persisted and restored on reopen
 - Minimal toolbar that can be hidden while reading
+- OPDS catalog browser — save catalog addresses, browse feeds (OPDS 1 and 2),
+  open sub-feeds, and pick an acquisition format
+- Download queue with progress, cancel, and retry; downloads are validated
+  against the EPUB engine before they enter the library
+- Downloads screen (active / completed / failed) with offline access to
+  finished books
+- Settings: e-paper display guidance, reading defaults, library defaults, and
+  device diagnostics
 
-**Not yet implemented**
+**Deliberately not implemented**
 
-- OPDS catalog browsing and downloads (Phase 4)
-- Device-specific e-paper refresh control (Phase 5)
-- On-device validation of the reader (no test hardware available yet)
+- Device-specific refresh control — no vendor SDK has been confirmed on
+  hardware (evaluation recorded in `plan.md` Phase 5). Refresh stays with the
+  device's own system settings.
+- Anything listed in [`LIMITATIONS.md`](LIMITATIONS.md)
 
 ## Tech stack
 
@@ -50,6 +61,7 @@ hardware.
 | UI | Jetpack Compose + Material 3 |
 | Architecture | MVVM, repository pattern, manual DI |
 | EPUB engine | Readium Kotlin Toolkit 3.3.0 |
+| OPDS | Readium's OPDS 1/2 parsers behind `OpdsHttpClient` |
 | Persistence | Room 2.8.5 |
 | Preferences | DataStore |
 | Async | Coroutines + Flow |
@@ -65,45 +77,96 @@ Minimum SDK 24 (Android 7.0), target/compile SDK 36.
 Requires a JDK 17+ and the Android SDK (platform 36).
 
 ```sh
-./gradlew assembleDebug      # build the debug APK
-./gradlew testDebugUnitTest  # run unit tests
+./gradlew assembleDebug          # debug APK   -> app/build/outputs/apk/debug/
+./gradlew testDebugUnitTest      # unit tests (JVM + Robolectric)
+./gradlew assembleRelease        # release APK -> app/build/outputs/apk/release/
 ```
 
-The debug APK is written to `app/build/outputs/apk/debug/`.
+(There is no release-variant unit-test task in AGP 9; the same 131 tests run
+against the debug variant, and `assembleRelease` verifies release compilation.)
+
+The release build is **unsigned** and **not minified** (R8 off): Readium ships
+no consumer keep rules and there is no device here to smoke-test a shrunk APK —
+see `LIMITATIONS.md` §2.6 and the commented rules in `app/proguard-rules.pro`.
+
+### Signing a release
+
+Signing credentials never live in this repository. Create a keystore once,
+outside the repo, then wire it up locally:
+
+```sh
+keytool -genkeypair -v -keystore ~/keystores/miireader.jks -keyalg RSA \
+        -keysize 2048 -validity 10000 -alias miireader
+```
+
+```kotlin
+// app/build.gradle.kts  (local only — do not commit credentials)
+android {
+    signingConfigs {
+        create("release") {
+            storeFile = file(System.getenv("MIIREADER_STORE_FILE") ?: "missing.jks")
+            storePassword = System.getenv("MIIREADER_STORE_PASSWORD")
+            keyAlias = System.getenv("MIIREADER_KEY_ALIAS")
+            keyPassword = System.getenv("MIIREADER_KEY_PASSWORD")
+        }
+    }
+    buildTypes {
+        release {
+            if (System.getenv("MIIREADER_STORE_FILE") != null) {
+                signingConfig = signingConfigs.getByName("release")
+            }
+        }
+    }
+}
+```
+
+`MIIREADER_STORE_FILE` pointing at the keystore makes `assembleRelease`
+produce an installable signed APK; without it you get
+`app-release-unsigned.apk`. Before publishing anything, run the first-hardware
+bring-up checklist in `LIMITATIONS.md` §3 against the release APK.
 
 ## Testing
 
-17 local unit tests cover the bookshelf view model (search, filter, sort,
-delete, import outcomes) and the book repository. Local tests that need a real
-`Uri` or `Context` run under Robolectric.
+131 local unit tests cover the library, import (including malformed, empty,
+and unsupported EPUBs), reader state, bookmarks and progress across database
+restarts, database upgrades from v1/v2 schemas, the OPDS parser and HTTP
+layer (against fixtures and a loopback server), the download queue (including
+interrupted transfers), settings, the e-paper design rules, and activity
+recreation. Tests needing a real `Uri`, `Context`, `Room`, or Readium `Url`
+run under Robolectric (SDK 34).
 
 ```sh
 ./gradlew testDebugUnitTest
 ```
 
-Rendering, page-turn, and e-paper refresh behavior must still be verified on
-physical hardware — Compose-level tests cannot confirm panel refresh modes.
+There is no instrumentation/UI test suite — no emulator exists on the build
+machine. Rendering, page-turn keys, rotation on a panel, and e-paper refresh
+behavior must be verified on physical hardware per `LIMITATIONS.md` §3.
 
 ## Project structure
 
 ```
 app/src/main/java/com/miireader/
-├── core/           dispatchers, error types, input bridges, shared models
+├── core/            dispatchers, error types, input bridges, shared models
 ├── data/
-│   ├── epub/       Readium publication opening + metadata extraction
-│   ├── local/      Room database, DAOs, entities
+│   ├── epub/        Readium publication opening + metadata extraction
+│   ├── local/       Room database, DAOs, entities
+│   ├── download/    download queue (fetch -> validate -> import)
+│   ├── opds/        OPDS HTTP client, feed parsing, catalog models
 │   ├── preferences/ DataStore-backed user settings
-│   └── repository/ library, import, progress, bookmark repositories
-├── di/             manual dependency container + view-model factory
-├── platform/epaper/ vendor-neutral display integration
-└── ui/
-    ├── bookshelf/  library screen
-    ├── catalog/    OPDS browser (placeholder)
-    ├── components/ reusable e-paper UI widgets
-    ├── navigation/ routes
-    ├── reader/     reading screen, Readium navigator host, reader panels
-    ├── settings/   reading + e-paper preferences
-    └── theme/      monochrome design system
+│   └── repository/  library, import, progress, bookmark, catalog repositories
+├── di/              manual dependency container + view-model factory
+├── platform/epaper/ vendor-neutral display integration (no-op seam)
+├── ui/
+│   ├── bookshelf/   library screen
+│   ├── catalog/     OPDS browser
+│   ├── components/  reusable e-paper UI widgets
+│   ├── downloads/   download queue screen
+│   ├── navigation/  routes
+│   ├── reader/      reading screen, Readium navigator host, reader panels
+│   ├── settings/    reading + e-paper preferences
+│   └── theme/       monochrome design system
+└── MiiReaderApplication.kt, MainActivity.kt
 ```
 
 ## E-paper design principles
@@ -114,21 +177,28 @@ app/src/main/java/com/miireader/
 - Stable layouts and stable list-item identity to minimize redraws
 - ~48dp touch targets; respects system font scaling
 
+These rules are not just conventions: `ui/EpaperUiConstraintTest` scans the
+sources and fails the build if a forbidden construct (animation API, animated
+navigation, ripple, translucent color, missing list key, non-`sp` text…)
+reappears, and `ui/theme/EpaperThemeTest` asserts WCAG contrast of the palette.
+
 The app detects known e-paper manufacturers (Onyx/BOOX, Bigme, Boyue, MeeBook)
 but deliberately issues **no** vendor-specific or undocumented refresh calls.
 Refresh behavior is left to the system until a documented device SDK is
-confirmed.
+confirmed — see `plan.md` Phase 5 for the evaluation.
 
 ## Roadmap
 
-The full plan lives in [`plan.md`](plan.md).
+The full plan lives in [`plan.md`](plan.md); known gaps live in
+[`LIMITATIONS.md`](LIMITATIONS.md).
 
 - [x] Phase 1 — project foundation, theme, navigation
 - [x] Phase 2 — local EPUB library and import
 - [x] Phase 3 — EPUB reader (Readium navigator, bookmarks, position restore)
-- [ ] Phase 4 — OPDS catalogs and downloads
-- [ ] Phase 5 — e-paper optimization and hardware validation
-- [ ] Phase 6 — hardening and release
+- [x] Phase 4 — OPDS catalogs and downloads
+- [x] Phase 5 — e-paper optimization (rules enforced in tests; hardware items open)
+- [x] Phase 6 — hardening and release (profiling + device validation remain
+      open, see `plan.md` Phase 6)
 
 ## License
 
