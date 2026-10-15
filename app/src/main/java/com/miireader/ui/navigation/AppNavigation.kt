@@ -18,6 +18,9 @@ import com.miireader.di.ViewModelFactory
 import com.miireader.ui.bookshelf.BookshelfScreen
 import com.miireader.ui.bookshelf.BookshelfViewModel
 import com.miireader.ui.catalog.CatalogScreen
+import com.miireader.ui.catalog.CatalogViewModel
+import com.miireader.ui.downloads.DownloadsScreen
+import com.miireader.ui.downloads.DownloadsViewModel
 import com.miireader.ui.reader.ReaderScreen
 import com.miireader.ui.reader.ReaderViewModel
 import com.miireader.ui.settings.SettingsScreen
@@ -62,6 +65,9 @@ fun AppNavigation(
                 },
                 onNavigateToCatalog = {
                     navController.navigate(Screen.Catalog.route)
+                },
+                onNavigateToDownloads = {
+                    navController.navigate(Screen.Downloads.route)
                 },
                 onClearError = viewModel::clearError
             )
@@ -121,10 +127,42 @@ fun AppNavigation(
         }
 
         composable(Screen.Catalog.route) {
+            val viewModel: CatalogViewModel = viewModel(factory = viewModelFactory)
+            val uiState by viewModel.uiState.collectAsState()
+
             CatalogScreen(
+                uiState = uiState,
+                onAddCatalog = viewModel::addCatalog,
+                onRemoveCatalog = viewModel::removeCatalog,
+                onOpenFeed = viewModel::openFeed,
+                onCloseFeed = viewModel::closeFeed,
+                onRefreshFeed = viewModel::refreshFeed,
+                onClearError = viewModel::clearError,
+                onAcquisitionSelected = { url, mediaType, title, author ->
+                    viewModel.enqueueDownload(url, mediaType, title, author)
+                },
                 onNavigateBack = {
                     navController.popBackStack()
                 }
+            )
+        }
+
+        composable(Screen.Downloads.route) {
+            val viewModel: DownloadsViewModel = viewModel(factory = viewModelFactory)
+            val uiState by viewModel.uiState.collectAsState()
+
+            DownloadsScreen(
+                uiState = uiState,
+                onRetryDownload = viewModel::retryDownload,
+                onCancelDownload = viewModel::cancelDownload,
+                onRemoveDownload = viewModel::removeDownload,
+                onOpenDownload = { bookId ->
+                    navController.navigate(Screen.Reader.create(bookId))
+                },
+                onNavigateBack = {
+                    navController.popBackStack()
+                },
+                onClearError = viewModel::clearError
             )
         }
     }

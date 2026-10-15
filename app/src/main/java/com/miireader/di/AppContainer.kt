@@ -6,6 +6,12 @@ import com.miireader.core.dispatchers.DefaultCoroutineDispatchers
 import com.miireader.core.error.DefaultErrorHandler
 import com.miireader.core.error.ErrorHandler
 import com.miireader.core.input.PageTurnKeys
+import com.miireader.data.download.BookDownloader
+import com.miireader.data.download.DefaultDownloadManager
+import com.miireader.data.download.DefaultDownloadRepository
+import com.miireader.data.download.DownloadManager
+import com.miireader.data.download.DownloadRepository
+import com.miireader.data.download.ReadiumBookDownloader
 import com.miireader.data.epub.EpubMetadataExtractor
 import com.miireader.data.epub.EpubPublicationRepository
 import com.miireader.data.epub.ReadiumEpubMetadataExtractor
@@ -17,11 +23,16 @@ import com.miireader.data.preferences.dataStore
 import com.miireader.data.repository.BookImporter
 import com.miireader.data.repository.BookRepository
 import com.miireader.data.repository.BookmarkRepository
+import com.miireader.data.repository.CatalogRepository
 import com.miireader.data.repository.DefaultBookImporter
 import com.miireader.data.repository.DefaultBookRepository
 import com.miireader.data.repository.DefaultBookmarkRepository
+import com.miireader.data.repository.DefaultCatalogRepository
 import com.miireader.data.repository.DefaultProgressRepository
 import com.miireader.data.repository.ProgressRepository
+import com.miireader.data.opds.OpdsCatalogSource
+import com.miireader.data.opds.ReadiumOpdsHttpClient
+import com.miireader.data.opds.OpdsHttpClient
 import com.miireader.platform.epaper.DefaultEpaperController
 import com.miireader.platform.epaper.EpaperController
 
@@ -39,6 +50,10 @@ interface AppContainer {
     val publicationRepository: EpubPublicationRepository
     val progressRepository: ProgressRepository
     val bookmarkRepository: BookmarkRepository
+    val catalogRepository: CatalogRepository
+    val downloadRepository: DownloadRepository
+    val downloadManager: DownloadManager
+    val opdsCatalogSource: OpdsCatalogSource
     val epaperController: EpaperController
 
     /**
@@ -95,6 +110,36 @@ class DefaultAppContainer(override val context: Context) : AppContainer {
 
     override val bookmarkRepository: BookmarkRepository by lazy {
         DefaultBookmarkRepository(database.bookmarkDao(), dispatchers)
+    }
+
+    override val catalogRepository: CatalogRepository by lazy {
+        DefaultCatalogRepository(database.catalogDao(), dispatchers)
+    }
+
+    override val downloadRepository: DownloadRepository by lazy {
+        DefaultDownloadRepository(database.downloadDao(), dispatchers)
+    }
+
+    override val downloadManager: DownloadManager by lazy {
+        DefaultDownloadManager(
+            context = context,
+            downloadRepository = downloadRepository,
+            bookRepository = bookRepository,
+            metadataExtractor = epubMetadataExtractor,
+            downloader = bookDownloader,
+            errorHandler = errorHandler,
+            dispatchers = dispatchers
+        )
+    }
+
+    /** Injectable so the browser can be exercised against a fake feed in tests. */
+    private val opdsHttpClient: OpdsHttpClient by lazy { ReadiumOpdsHttpClient() }
+
+    /** Injectable so the download queue can be exercised without a socket in tests. */
+    private val bookDownloader: BookDownloader by lazy { ReadiumBookDownloader() }
+
+    override val opdsCatalogSource: OpdsCatalogSource by lazy {
+        OpdsCatalogSource(opdsHttpClient)
     }
 
     override val epaperController: EpaperController by lazy {

@@ -13,3 +13,5 @@
 .externalNativeBuild
 .cxx
 local.properties
+# Kotlin/IDE build state written by the Gradle daemon and Android Studio.
+.kotlin/

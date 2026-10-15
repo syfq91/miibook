@@ -3,6 +3,8 @@ package com.miireader.di
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import com.miireader.ui.bookshelf.BookshelfViewModel
+import com.miireader.ui.catalog.CatalogViewModel
+import com.miireader.ui.downloads.DownloadsViewModel
 import com.miireader.ui.reader.ReaderViewModel
 import com.miireader.ui.settings.SettingsViewModel
 
@@ -26,6 +28,20 @@ class ViewModelFactory(
                 SettingsViewModel(
                     userPreferencesRepository = container.userPreferencesRepository,
                     epaperController = container.epaperController
+                ) as T
+            }
+            modelClass.isAssignableFrom(CatalogViewModel::class.java) -> {
+                CatalogViewModel(
+                    catalogRepository = container.catalogRepository,
+                    catalogSource = container.opdsCatalogSource,
+                    downloadManager = container.downloadManager
+                ) as T
+            }
+            modelClass.isAssignableFrom(DownloadsViewModel::class.java) -> {
+                DownloadsViewModel(
+                    downloadRepository = container.downloadRepository,
+                    downloadManager = container.downloadManager,
+                    errorHandler = container.errorHandler
                 ) as T
             }
             else -> throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")

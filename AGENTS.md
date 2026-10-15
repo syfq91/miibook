@@ -51,8 +51,8 @@ The docs online are often for a different version. These bite hard:
 - `Publication` is **not** `AutoCloseable` — do **not** use `.use { }`. Close in
   a `try { } finally { publication.close() }`.
 - `Metadata.title` is a plain `String?` (no `.toString()` needed).
-  `Metadata.authors` is a `List<LocalizedString>` — use `.firstOrNull()
-  ?.toString()`.
+  `Metadata.authors` is a `List<Contributor>` — see the OPDS notes below for
+  how to get a readable name out of one.
 - Exact class locations:
   - `org.readium.r2.shared.util.asset.AssetRetriever`
   - `org.readium.r2.shared.util.http.DefaultHttpClient`
@@ -72,6 +72,21 @@ The docs online are often for a different version. These bite hard:
   the reading order *and* that reading-order `Link` has a `mediaType`. A
   `Manifest` carrying only a `tableOfContents` resolves nothing — always build
   the reading order too (see `testPublication` in the test doubles).
+- **`Metadata.authors` is `List<Contributor>`, not `List<LocalizedString>`** —
+  the older note above is stale. The readable name is
+  `authors.firstOrNull()?.localizedName?.string`; `toString()` on a `Contributor`
+  prints the whole data class.
+- **Anything that builds a Readium `Url`/`AbsoluteUrl`, or parses an OPDS feed,
+  needs Robolectric** even with no Activity involved: those types are backed by
+  `android.net.Uri`, which is a stub that throws in a plain JVM test. Every
+  parser test in `OpdsFeedParserTest` failed with a bogus "invalid address"
+  until the class was annotated `@RunWith(RobolectricTestRunner::class)` +
+  `@Config(sdk = [34])`.
+- **OPDS 1 navigation is entries, not feed-level links.** `OPDS1Parser` fills
+  `Feed.navigation` only from `<entry>` elements that carry *no* acquisition link
+  (a sub-section); the feed's own `<link>` elements are self/search descriptors
+  and never become navigation. A fixture with only feed-level links correctly
+  reports an empty `navigation` — that is not a mapping bug.
 - Readium's Compose navigators (`readium-navigators-web-reflowable` plus its
   `-common` / `-internals` siblings) are **not published to Maven Central** for
   3.3.0 — every version returns HTTP 404. Only the Android/Fragment navigator is
@@ -147,13 +162,14 @@ control is Phase 5 and requires a confirmed manufacturer SDK.
 
 ## Current status
 
-Phase 1 (foundation), Phase 2 (local EPUB library + SAF import) and Phase 3
-(EPUB reader) are done and pushed. The reader embeds Readium's
-`EpubNavigatorFragment` (Fragment/WebView) in a Compose host — see the Phase 3
-notes in `plan.md` for why the Compose navigators were not usable. OPDS/catalog
-is still a placeholder (Phase 4).
+Phase 1 (foundation), Phase 2 (local EPUB library + SAF import), Phase 3 (EPUB
+reader) and Phase 4 (OPDS catalog browser + downloads) are done. Phase 4 adds the
+catalog screen backed by `data/opds/` (Readium's OPDS parsers behind an
+`OpdsHttpClient` interface), a Room-persisted download queue in `data/download/`
+whose worker validates and imports each EPUB into the library, and a downloads
+screen. `plan.md` carries the phase notes and verification limits.
 
-**Phase 3 verification was unit tests plus `assembleDebug` only** — there is no
-device or emulator on this machine. Page rendering, hardware page-turn keys,
-rotation and e-paper refresh have **not** been observed on hardware; never claim
-they work without testing them.
+**Verification is unit tests plus `assembleDebug` only** — there is no device or
+emulator on this machine. Page rendering, hardware page-turn keys, rotation,
+e-paper refresh, *and every Phase 4 network and download path* have **not** been
+observed on hardware; never claim any of them work without testing them.

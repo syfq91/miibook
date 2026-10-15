@@ -4,6 +4,7 @@ sealed class Screen(val route: String) {
     data object Bookshelf : Screen("bookshelf")
     data object Settings : Screen("settings")
     data object Catalog : Screen("catalog")
+    data object Downloads : Screen("downloads")
 
     /**
      * Reader for a single book. The id is a route argument so each book gets its own

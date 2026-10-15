@@ -21,6 +21,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.LocalLibrary
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
@@ -76,6 +77,7 @@ fun BookshelfScreen(
     onImportUriSelected: (Uri) -> Unit,
     onNavigateToSettings: () -> Unit,
     onNavigateToCatalog: () -> Unit,
+    onNavigateToDownloads: () -> Unit,
     onClearError: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -117,6 +119,11 @@ fun BookshelfScreen(
                     icon = Icons.Default.LocalLibrary,
                     contentDescription = "OPDS Catalogs",
                     onClick = onNavigateToCatalog
+                )
+                EpaperIconButton(
+                    icon = Icons.Default.FileDownload,
+                    contentDescription = "Downloads",
+                    onClick = onNavigateToDownloads
                 )
                 EpaperIconButton(
                     icon = Icons.Default.Settings,

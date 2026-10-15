@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- OPDS catalog feeds and book downloads. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
     <application
         android:name=".MiiReaderApplication"
         android:allowBackup="true"

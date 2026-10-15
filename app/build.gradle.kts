@@ -89,11 +89,12 @@ dependencies {
   ksp(libs.androidx.room.compiler)
   implementation(libs.androidx.datastore.preferences)
 
-  // Readium Toolkit (EPUB parsing/opening + the reading navigator). The OPDS
-  // module is wired in during Phase 4.
+  // Readium Toolkit (EPUB parsing/opening + the reading navigator, plus the OPDS
+  // feed parser used by the catalog browser).
   implementation(libs.readium.shared)
   implementation(libs.readium.streamer)
   implementation(libs.readium.navigator)
+  implementation(libs.readium.opds)
 
   // Tooling
   debugImplementation(libs.androidx.compose.ui.tooling)

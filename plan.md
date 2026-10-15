@@ -274,14 +274,22 @@ Test visual ghosting and refresh behavior on physical hardware. Compose-level op
 > real hardware and must not be claimed to work.
 
 ### Phase 4: OPDS and Downloads
-- [ ] Implement catalog URL management.
-- [ ] Parse supported OPDS feeds.
-- [ ] Display catalog entries and acquisition options.
-- [ ] Implement download queue and progress.
-- [ ] Validate downloaded files before opening.
-- [ ] Add offline library integration and download error recovery.
+- [x] Implement catalog URL management.
+- [x] Parse supported OPDS feeds.
+- [x] Display catalog entries and acquisition options.
+- [x] Implement download queue and progress.
+- [x] Validate downloaded files before opening.
+- [x] Add offline library integration and download error recovery.
 
 > **Deliverable:** Users can browse public OPDS catalogs, download books, and read them offline.
+
+> **Verification for this phase is limited to unit tests and `assembleDebug`**, the same
+> constraint as Phase 3: no device or emulator exists on the build machine. The OPDS feed
+> parser is exercised against hand-written OPDS 1 and OPDS 2 fixtures through Readium's
+> real parsers, and the download queue's import/validation path is covered only to the
+> point where it would touch the network or the filesystem. Fetching from a live catalog,
+> downloading a real EPUB, opening it from the downloads screen, and reading it offline
+> have **not** been exercised on a device and must not be claimed to work.
 
 ### Phase 5: E-Paper Optimization
 - [ ] Audit the app for animations and unnecessary visual changes.
