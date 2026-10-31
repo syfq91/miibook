@@ -14,8 +14,6 @@ import androidx.compose.material.icons.automirrored.filled.List as ListIcon
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material.icons.outlined.FormatSize
 import androidx.compose.material3.MaterialTheme
@@ -28,6 +26,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextAlign
 import androidx.fragment.app.FragmentActivity
 import com.miireader.core.model.ReaderTheme
 import com.miireader.ui.components.EpaperDivider
@@ -35,7 +34,6 @@ import com.miireader.ui.components.EpaperEmptyState
 import com.miireader.ui.components.EpaperIconButton
 import com.miireader.ui.components.EpaperLoadingIndicator
 import com.miireader.ui.components.EpaperTopBar
-import com.miireader.ui.theme.DarkGray
 import com.miireader.ui.theme.NearBlack
 
 /**
@@ -64,6 +62,7 @@ fun ReaderScreen(
     onBack: () -> Unit,
     onNavigatorReady: (ReaderNavigator) -> Unit,
     onNavigatorDisposed: () -> Unit,
+    onPageInChapterChanged: (pageInChapter: Int, totalPagesInChapter: Int) -> Unit,
     onToggleToolbar: () -> Unit,
     onPreviousPage: () -> Unit,
     onNextPage: () -> Unit,
@@ -143,6 +142,7 @@ fun ReaderScreen(
                         readerTheme = uiState.readerTheme,
                         onNavigatorReady = onNavigatorReady,
                         onNavigatorDisposed = onNavigatorDisposed,
+                        onPageInChapterChanged = onPageInChapterChanged,
                         onTapPrevious = onPreviousPage,
                         onTapToggleToolbar = onToggleToolbar,
                         onTapNext = onNextPage,
@@ -154,11 +154,9 @@ fun ReaderScreen(
             EpaperDivider()
 
             ReaderBottomBar(
-                progressPercent = uiState.progressPercent,
-                chapterTitle = uiState.chapterTitle,
-                toolbarVisible = uiState.toolbarVisible,
+                pageInChapter = uiState.pageInChapter,
+                totalPagesInChapter = uiState.totalPagesInChapter,
                 controlsEnabled = !uiState.isLoading && uiState.errorMessage == null,
-                onToggleToolbar = onToggleToolbar,
                 onPreviousPage = onPreviousPage,
                 onNextPage = onNextPage
             )
@@ -200,11 +198,9 @@ fun ReaderScreen(
 
 @Composable
 private fun ReaderBottomBar(
-    progressPercent: Int,
-    chapterTitle: String,
-    toolbarVisible: Boolean,
+    pageInChapter: Int,
+    totalPagesInChapter: Int,
     controlsEnabled: Boolean,
-    onToggleToolbar: () -> Unit,
     onPreviousPage: () -> Unit,
     onNextPage: () -> Unit,
     modifier: Modifier = Modifier
@@ -216,34 +212,23 @@ private fun ReaderBottomBar(
         verticalAlignment = Alignment.CenterVertically
     ) {
         EpaperIconButton(
-            icon = if (toolbarVisible) Icons.Filled.KeyboardArrowDown else Icons.Filled.KeyboardArrowUp,
-            contentDescription = if (toolbarVisible) "Hide toolbar" else "Show toolbar",
-            onClick = onToggleToolbar
-        )
-
-        EpaperIconButton(
             icon = Icons.Filled.ChevronLeft,
             contentDescription = "Previous page",
             enabled = controlsEnabled,
             onClick = onPreviousPage
         )
 
-        Column(
+        Text(
             modifier = Modifier.weight(1f),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                text = "$progressPercent%",
-                style = MaterialTheme.typography.titleMedium,
-                color = NearBlack
-            )
-            Text(
-                text = chapterTitle,
-                style = MaterialTheme.typography.labelMedium,
-                color = DarkGray,
-                maxLines = 1
-            )
-        }
+            text = if (totalPagesInChapter > 0) {
+                "$pageInChapter/$totalPagesInChapter"
+            } else {
+                "–"
+            },
+            style = MaterialTheme.typography.titleMedium,
+            color = NearBlack,
+            textAlign = TextAlign.Center
+        )
 
         EpaperIconButton(
             icon = Icons.Filled.ChevronRight,

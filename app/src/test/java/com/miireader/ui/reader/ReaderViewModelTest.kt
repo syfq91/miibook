@@ -260,6 +260,34 @@ class ReaderViewModelTest {
         assertEquals(2, progressRepository.saveCount)
     }
 
+    @Test
+    fun `chapter pagination updates the page counter`() = runTest(dispatcher) {
+        val viewModel = createViewModel()
+        activate(viewModel)
+
+        viewModel.onPageInChapterChanged(pageInChapter = 3, totalPagesInChapter = 12)
+        advanceUntilIdle()
+
+        assertEquals(3, viewModel.uiState.value.pageInChapter)
+        assertEquals(12, viewModel.uiState.value.totalPagesInChapter)
+    }
+
+    @Test
+    fun `chapter pagination ignores unknown counts and clamps out-of-range pages`() =
+        runTest(dispatcher) {
+            val viewModel = createViewModel()
+            activate(viewModel)
+
+            viewModel.onPageInChapterChanged(pageInChapter = 1, totalPagesInChapter = 0)
+            advanceUntilIdle()
+            assertEquals(0, viewModel.uiState.value.totalPagesInChapter)
+
+            viewModel.onPageInChapterChanged(pageInChapter = 40, totalPagesInChapter = 12)
+            advanceUntilIdle()
+            assertEquals(12, viewModel.uiState.value.pageInChapter)
+            assertEquals(12, viewModel.uiState.value.totalPagesInChapter)
+        }
+
     // ---------------------------------------------------------------- bookmarks
 
     @Test

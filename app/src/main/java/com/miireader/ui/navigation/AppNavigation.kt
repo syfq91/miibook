@@ -90,6 +90,7 @@ fun AppNavigation(
                 onBack = { navController.popBackStack() },
                 onNavigatorReady = viewModel::onNavigatorReady,
                 onNavigatorDisposed = viewModel::onNavigatorDisposed,
+                onPageInChapterChanged = viewModel::onPageInChapterChanged,
                 onToggleToolbar = viewModel::toggleToolbar,
                 onPreviousPage = viewModel::goBackward,
                 onNextPage = viewModel::goForward,

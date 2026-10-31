@@ -81,6 +81,8 @@ class ReaderViewModel(
         val bookTitle: String = "",
         val chapterTitle: String = "",
         val progressPercent: Int = 0,
+        val pageInChapter: Int = 0,
+        val totalPagesInChapter: Int = 0,
         val currentLocator: Locator? = null,
         val toc: List<TocItem> = emptyList(),
         val toolbarVisible: Boolean = true
@@ -127,6 +129,8 @@ class ReaderViewModel(
             bookTitle = content.bookTitle,
             chapterTitle = content.chapterTitle,
             progressPercent = content.progressPercent,
+            pageInChapter = content.pageInChapter,
+            totalPagesInChapter = content.totalPagesInChapter,
             isCurrentPositionBookmarked = current != null && bookmarkItems.any {
                 it.locator.isSamePositionAs(current)
             },
@@ -235,6 +239,22 @@ class ReaderViewModel(
         positionJob = null
         navigator = null
         pageTurnKeys.unregister()
+    }
+
+    /**
+     * Called by the screen when the navigator reports the current page within the
+     * chapter (spine resource). Both values are page counts, with [pageInChapter]
+     * 1-based as reported here.
+     */
+    fun onPageInChapterChanged(pageInChapter: Int, totalPagesInChapter: Int) {
+        if (pageInChapter <= 0 || totalPagesInChapter <= 0) return
+
+        _content.update {
+            it.copy(
+                pageInChapter = pageInChapter.coerceAtMost(totalPagesInChapter),
+                totalPagesInChapter = totalPagesInChapter
+            )
+        }
     }
 
     private fun onPositionChanged(locator: Locator) {

@@ -36,12 +36,16 @@ data class ReaderUiState(
     val chapterTitle: String = "",
     /** Whole-number percentage (0-100) through the publication. */
     val progressPercent: Int = 0,
+    /** 1-based page number within the current chapter (spine resource). 0 until known. */
+    val pageInChapter: Int = 0,
+    /** Total pages in the current chapter (spine resource). 0 until known. */
+    val totalPagesInChapter: Int = 0,
     /** True when a bookmark already exists at the position on screen. */
     val isCurrentPositionBookmarked: Boolean = false,
     val bookmarks: List<BookmarkItem> = emptyList(),
     val toc: List<TocItem> = emptyList(),
     val fontSizeSp: Int = 18,
     val readerTheme: ReaderTheme = ReaderTheme.LIGHT,
-    /** While false the top toolbar is hidden; the bottom bar button brings it back. */
+    /** While false the top toolbar is hidden; tapping the middle of the page brings it back. */
     val toolbarVisible: Boolean = true
 )

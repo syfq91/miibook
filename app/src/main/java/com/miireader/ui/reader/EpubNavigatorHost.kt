@@ -26,6 +26,7 @@ import org.readium.r2.navigator.input.TapEvent
 import org.readium.r2.navigator.preferences.Theme as NavigatorTheme
 import org.readium.r2.shared.DelicateReadiumApi
 import org.readium.r2.shared.ExperimentalReadiumApi
+import org.readium.r2.shared.publication.Locator
 
 /** Tag used for the navigator fragment so it can be found, replaced, and removed. */
 private const val NAVIGATOR_TAG = "miireader.epub_navigator"
@@ -77,6 +78,7 @@ fun EpubNavigatorHost(
     readerTheme: ReaderTheme,
     onNavigatorReady: (ReaderNavigator) -> Unit,
     onNavigatorDisposed: () -> Unit,
+    onPageInChapterChanged: (pageInChapter: Int, totalPagesInChapter: Int) -> Unit,
     onTapPrevious: () -> Unit,
     onTapToggleToolbar: () -> Unit,
     onTapNext: () -> Unit,
@@ -93,6 +95,7 @@ fun EpubNavigatorHost(
     val themeState = rememberUpdatedState(readerTheme)
     val readyState = rememberUpdatedState(onNavigatorReady)
     val disposedState = rememberUpdatedState(onNavigatorDisposed)
+    val pageInChapterState = rememberUpdatedState(onPageInChapterChanged)
     val tapPreviousState = rememberUpdatedState(onTapPrevious)
     val tapToggleToolbarState = rememberUpdatedState(onTapToggleToolbar)
     val tapNextState = rememberUpdatedState(onTapNext)
@@ -137,7 +140,10 @@ fun EpubNavigatorHost(
                         classLoader = classLoader,
                         session = sessionState.value,
                         fontSizeSp = fontSizeState.value,
-                        readerTheme = themeState.value
+                        readerTheme = themeState.value,
+                        onPageInChapterChanged = { page, total ->
+                            pageInChapterState.value(page, total)
+                        }
                     )
                     fragment.addInputListener(
                         ReaderTapListener(fragment) { zone ->
@@ -187,11 +193,20 @@ private fun attachNavigator(
     classLoader: ClassLoader,
     session: ReaderSession,
     fontSizeSp: Int,
-    readerTheme: ReaderTheme
+    readerTheme: ReaderTheme,
+    onPageInChapterChanged: (pageInChapter: Int, totalPagesInChapter: Int) -> Unit
 ): EpubNavigatorFragment {
+    val paginationListener = object : EpubNavigatorFragment.PaginationListener {
+        override fun onPageChanged(pageIndex: Int, totalPages: Int, locator: Locator) {
+            // Readium reports a 0-based page index; the UI shows human page numbers.
+            onPageInChapterChanged(pageIndex + 1, totalPages)
+        }
+    }
+
     val factory = EpubNavigatorFactory(session.publication).createFragmentFactory(
         initialLocator = session.initialLocator,
         initialPreferences = buildPreferences(fontSizeSp, readerTheme),
+        paginationListener = paginationListener,
         configuration = EpubNavigatorFragment.Configuration {
             // Drive font size with WebView textZoom instead of the Readium CSS
             // `--USER__fontSize` variable: Readium documents textZoom as working with more
