@@ -14,6 +14,21 @@ data class CatalogItemUi(
     val displayTitle: String
 )
 
+/**
+ * A saved catalog whose address or credentials are being edited.
+ *
+ * The password is deliberately absent: it is never displayed back to the user. [hasPassword]
+ * only decides whether the form can honestly say that leaving the field blank keeps the
+ * stored one.
+ */
+data class CatalogEditUi(
+    val id: String,
+    val url: String,
+    val username: String,
+    val displayTitle: String,
+    val hasPassword: Boolean
+)
+
 /** One book entry, with its downloadable formats. */
 data class CatalogEntryUi(
     val title: String,
@@ -33,6 +48,8 @@ data class CatalogEntryUi(
  * @property navigation sub-feeds of the current feed.
  * @property isLoadingFeed true while a feed request is in flight.
  * @property isAddingCatalog true while a new catalog URL is being validated and fetched.
+ * @property editingCatalog the saved catalog the add form is currently editing, or null
+ *           when the form is adding a new one.
  */
 data class CatalogUiState(
     val savedCatalogs: List<CatalogItemUi> = emptyList(),
@@ -42,6 +59,7 @@ data class CatalogUiState(
     val navigation: List<CatalogLink> = emptyList(),
     val isLoadingFeed: Boolean = false,
     val isAddingCatalog: Boolean = false,
+    val editingCatalog: CatalogEditUi? = null,
     val errorMessage: String? = null
 ) {
     /** True when a feed is on screen rather than the saved-catalog list. */

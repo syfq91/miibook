@@ -31,7 +31,9 @@ import com.miireader.ui.theme.HighContrastErrorText
 @Composable
 fun CatalogScreen(
     uiState: CatalogUiState,
-    onAddCatalog: (String, String?, String?) -> Unit,
+    onSaveCatalog: (String?, String, String?, String?) -> Unit,
+    onEditCatalog: (String) -> Unit,
+    onCancelEdit: () -> Unit,
     onRemoveCatalog: (String) -> Unit,
     onOpenFeed: (String) -> Unit,
     onCloseFeed: () -> Unit,
@@ -57,22 +59,30 @@ fun CatalogScreen(
         )
 
         when {
-            uiState.isAddingCatalog || uiState.isLoadingFeed -> {
-                EpaperLoadingIndicator(
-                    text = if (uiState.isAddingCatalog) "Checking catalog..." else "Loading feed...",
-                    modifier = Modifier.padding(EpaperDimensions.PaddingLarge)
-                )
+            // The saved-catalog list stays composed while a catalog is added or edited,
+            // because the form's text is local state: unmounting it mid-save would throw
+            // away what the user typed whenever the attempt fails. Its status line is
+            // rendered inside the list instead. A feed, by contrast, owns the whole body.
+            uiState.isBrowsingFeed -> {
+                if (uiState.isLoadingFeed) {
+                    EpaperLoadingIndicator(
+                        text = "Loading feed...",
+                        modifier = Modifier.padding(EpaperDimensions.PaddingLarge)
+                    )
+                } else {
+                    CatalogFeedContent(
+                        uiState = uiState,
+                        onOpenFeed = onOpenFeed,
+                        onAcquisitionSelected = onAcquisitionSelected
+                    )
+                }
             }
-
-            uiState.isBrowsingFeed -> CatalogFeedContent(
-                uiState = uiState,
-                onOpenFeed = onOpenFeed,
-                onAcquisitionSelected = onAcquisitionSelected
-            )
 
             else -> CatalogListContent(
                 uiState = uiState,
-                onAddCatalog = onAddCatalog,
+                onSaveCatalog = onSaveCatalog,
+                onEditCatalog = onEditCatalog,
+                onCancelEdit = onCancelEdit,
                 onRemoveCatalog = onRemoveCatalog,
                 onOpenFeed = onOpenFeed
             )

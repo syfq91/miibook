@@ -219,7 +219,7 @@ Only Basic is supported — no OPDS auth documents/OAuth/DRM — and the passwor
 is stored in plain text in the app-private database (`LIMITATIONS.md` §2.9).
 Database schema is now **v4** (v3 → v4 adds the credential columns).
 
-Phase 6 added the hardening suite (160 tests total): destructive-migration
+Phase 6 added the hardening suite (173 tests total): destructive-migration
 tests for v1/v2/v3 databases, malformed/large/unsupported EPUB fixtures against
 real Readium, real imports over `content://` streams, loopback HTTP tests for
 every network failure mode, mid-stream interruption of downloads, offline
@@ -236,7 +236,10 @@ manual adb smoke test on an Android 16 tablet (Samsung SM-X115, 2026-10-31).**
 That session covered the authenticated BookFlow catalog: add with
 username/password, browse all seven sections and nested series feeds, download
 a 6.8 MB EPUB, confirm it imported with correct metadata, open it in the
-Readium navigator, and check the rejected-password wording. It also caught two
+Readium navigator, and check the rejected-password wording. A later pass on the
+same tablet exercised the per-catalog edit action (change address, keep
+credentials by leaving the password blank, reject a 404 address without losing
+the typed text, cancel). It also caught two
 device-only blockers now fixed: Android blocked cleartext HTTP
 (`network_security_config.xml` now permits it for LAN catalogs) and Readium's
 blocking body read ran on Main (`ReadiumOpdsHttpClient` now hops to its

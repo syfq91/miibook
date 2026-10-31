@@ -8,7 +8,7 @@ Inspired by CrossPoint Reader's reading-focused design, but built as a native
 Android app — not a firmware reproduction.
 
 **Status:** v0.1.0 — all six phases of [`plan.md`](plan.md) implemented; this is
-a **release candidate**, not a verified product. Everything is backed by 160
+a **release candidate**, not a verified product. Everything is backed by 173
 local unit tests plus debug/release builds, and one manual adb smoke test on an
 Android 16 tablet. No e-paper device or emulator is available, so nothing has
 been observed on e-paper hardware. Read
@@ -38,7 +38,7 @@ been observed on e-paper hardware. Read
 - Bookmarks — create, list, jump, remove
 - Reading position persisted and restored on reopen
 - Minimal toolbar that can be hidden while reading
-- OPDS catalog browser — save catalog addresses, browse feeds (OPDS 1 and 2),
+- OPDS catalog browser — save and edit catalog addresses, browse feeds (OPDS 1 and 2),
   open sub-feeds, and pick an acquisition format
 - Optional HTTP Basic sign-in per saved catalog, applied to its feeds and
   downloads (passwords are stored unencrypted in app-private storage)
@@ -85,7 +85,7 @@ Requires a JDK 17+ and the Android SDK (platform 36).
 ./gradlew assembleRelease        # release APK -> app/build/outputs/apk/release/
 ```
 
-(There is no release-variant unit-test task in AGP 9; the same 160 tests run
+(There is no release-variant unit-test task in AGP 9; the same 173 tests run
 against the debug variant, and `assembleRelease` verifies release compilation.)
 
 The release build is **unsigned** and **not minified** (R8 off): Readium ships
@@ -130,7 +130,7 @@ bring-up checklist in `LIMITATIONS.md` §3 against the release APK.
 
 ## Testing
 
-160 local unit tests cover the library, import (including malformed, empty,
+173 local unit tests cover the library, import (including malformed, empty,
 and unsupported EPUBs), reader state, bookmarks and progress across database
 restarts, database upgrades from v1–v3 schemas, the OPDS parser and HTTP
 layer (against fixtures and a loopback server, including HTTP Basic auth and

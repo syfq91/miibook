@@ -397,6 +397,224 @@ class CatalogViewModelTest {
     }
 
     @Test
+    fun `editing a catalog prefills the form without exposing the password`() = testScope.runTest {
+        catalogRepository.addCatalog(
+            catalogUrl,
+            title = "Example",
+            username = "reader",
+            password = "s3cret"
+        )
+
+        val collectJob = observeState()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val id = viewModel.uiState.value.savedCatalogs.single().id
+        viewModel.startEditingCatalog(id)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val editing = viewModel.uiState.value.editingCatalog
+        assertNotNull(editing)
+        assertEquals(catalogUrl, editing?.url)
+        assertEquals("reader", editing?.username)
+        assertEquals("Example", editing?.displayTitle)
+        assertTrue("the form should know that a password is stored", editing?.hasPassword == true)
+
+        collectJob.cancel()
+    }
+
+    @Test
+    fun `saving an edit with a blank password keeps the stored one`() = testScope.runTest {
+        catalogRepository.addCatalog(
+            catalogUrl,
+            title = "Example",
+            username = "reader",
+            password = "s3cret"
+        )
+        httpClient.put(catalogUrl, OpdsFixtures.OPDS1_ATOM)
+
+        val collectJob = observeState()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.startEditingCatalog(viewModel.uiState.value.savedCatalogs.single().id)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.saveEditedCatalog(url = catalogUrl, username = "reader", password = null)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(
+            listOf(CatalogCredentials("reader", "s3cret")),
+            httpClient.requestedCredentials
+        )
+        val saved = catalogRepository.catalogsFlow.first().single()
+        assertEquals("reader", saved.username)
+        assertEquals("s3cret", saved.password)
+        assertNull("edit mode should end after a successful save", viewModel.uiState.value.editingCatalog)
+        assertNull(viewModel.uiState.value.errorMessage)
+
+        collectJob.cancel()
+    }
+
+    @Test
+    fun `changing a catalog address updates it in place instead of duplicating it`() = testScope.runTest {
+        val newUrl = "https://catalog.example.org/opds/v2"
+        catalogRepository.addCatalog(catalogUrl, title = "Example")
+        httpClient.put(newUrl, OpdsFixtures.OPDS1_ATOM)
+
+        val collectJob = observeState()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.startEditingCatalog(viewModel.uiState.value.savedCatalogs.single().id)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.saveEditedCatalog(url = newUrl, username = null, password = null)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val catalogs = catalogRepository.catalogsFlow.first()
+        assertEquals(1, catalogs.size)
+        assertEquals(newUrl, catalogs.single().url)
+        assertEquals(newUrl, viewModel.uiState.value.savedCatalogs.single().url)
+        assertEquals(1, catalogRepository.updateCount)
+
+        collectJob.cancel()
+    }
+
+    @Test
+    fun `clearing the username during an edit makes the catalog public`() = testScope.runTest {
+        catalogRepository.addCatalog(
+            catalogUrl,
+            title = "Example",
+            username = "reader",
+            password = "s3cret"
+        )
+        httpClient.put(catalogUrl, OpdsFixtures.OPDS1_ATOM)
+
+        val collectJob = observeState()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.startEditingCatalog(viewModel.uiState.value.savedCatalogs.single().id)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.saveEditedCatalog(url = catalogUrl, username = null, password = null)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(listOf(null), httpClient.requestedCredentials)
+        val saved = catalogRepository.catalogsFlow.first().single()
+        assertNull(saved.username)
+        assertNull(saved.password)
+
+        collectJob.cancel()
+    }
+
+    @Test
+    fun `cancelling an edit leaves the saved catalog untouched`() = testScope.runTest {
+        catalogRepository.addCatalog(catalogUrl, title = "Example")
+
+        val collectJob = observeState()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.startEditingCatalog(viewModel.uiState.value.savedCatalogs.single().id)
+        testDispatcher.scheduler.advanceUntilIdle()
+        viewModel.cancelEditingCatalog()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.editingCatalog)
+        assertEquals(catalogUrl, catalogRepository.catalogsFlow.first().single().url)
+        assertTrue(httpClient.requestedUrls.isEmpty())
+
+        collectJob.cancel()
+    }
+
+    @Test
+    fun `an edit that cannot read the feed keeps the form open and stores nothing`() =
+        testScope.runTest {
+            val newUrl = "https://catalog.example.org/broken"
+            catalogRepository.addCatalog(catalogUrl, title = "Example")
+
+            val collectJob = observeState()
+            testDispatcher.scheduler.advanceUntilIdle()
+
+            viewModel.startEditingCatalog(viewModel.uiState.value.savedCatalogs.single().id)
+            testDispatcher.scheduler.advanceUntilIdle()
+
+            // No body registered for newUrl, so the fake client rejects it.
+            viewModel.saveEditedCatalog(url = newUrl, username = null, password = null)
+            testDispatcher.scheduler.advanceUntilIdle()
+
+            assertNotNull("the form must stay open so the address can be fixed", viewModel.uiState.value.editingCatalog)
+            assertNotNull(viewModel.uiState.value.errorMessage)
+            assertEquals(catalogUrl, catalogRepository.catalogsFlow.first().single().url)
+
+            collectJob.cancel()
+        }
+
+    @Test
+    fun `an invalid edited address is refused before any network call`() = testScope.runTest {
+        catalogRepository.addCatalog(catalogUrl, title = "Example")
+
+        val collectJob = observeState()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.startEditingCatalog(viewModel.uiState.value.savedCatalogs.single().id)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.saveEditedCatalog(url = "not a url", username = null, password = null)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertTrue(httpClient.requestedUrls.isEmpty())
+        assertNotNull(viewModel.uiState.value.editingCatalog)
+        assertNotNull(viewModel.uiState.value.errorMessage)
+
+        collectJob.cancel()
+    }
+
+    @Test
+    fun `removing the catalog being edited ends edit mode`() = testScope.runTest {
+        catalogRepository.addCatalog(catalogUrl, title = "Example")
+
+        val collectJob = observeState()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val id = viewModel.uiState.value.savedCatalogs.single().id
+        viewModel.startEditingCatalog(id)
+        testDispatcher.scheduler.advanceUntilIdle()
+        assertNotNull(viewModel.uiState.value.editingCatalog)
+
+        viewModel.removeCatalog(id)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.editingCatalog)
+        assertTrue(viewModel.uiState.value.savedCatalogs.isEmpty())
+
+        collectJob.cancel()
+    }
+
+    @Test
+    fun `an edit whose row vanished is reported instead of resurrecting it`() = testScope.runTest {
+        catalogRepository.addCatalog(catalogUrl, title = "Example")
+        httpClient.put(catalogUrl, OpdsFixtures.OPDS1_ATOM)
+
+        val collectJob = observeState()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val id = viewModel.uiState.value.savedCatalogs.single().id
+        viewModel.startEditingCatalog(id)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        // Removed behind the screen's back (for example by a background cleanup).
+        catalogRepository.removeCatalog(id)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.saveEditedCatalog(url = catalogUrl, username = null, password = null)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertNotNull(viewModel.uiState.value.errorMessage)
+        assertNull(viewModel.uiState.value.editingCatalog)
+        assertTrue(catalogRepository.catalogsFlow.first().isEmpty())
+
+        collectJob.cancel()
+    }
+
+    @Test
     fun `rejects a blank address before any network call`() = testScope.runTest {
         val collectJob = observeState()
         testDispatcher.scheduler.advanceUntilIdle()

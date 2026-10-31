@@ -43,6 +43,28 @@ interface CatalogRepository {
     ): CatalogEntity?
 
     /**
+     * Changes the address and/or credentials of the catalog saved as [id].
+     *
+     * A catalog's id is derived from its normalized URL, so moving a catalog to a
+     * different address means deleting the old row and inserting the new one. The
+     * original [CatalogEntity.addedDate] is carried across so the list does not reorder
+     * itself after an edit. When the address is unchanged the row is updated in place.
+     *
+     * @param username optional HTTP Basic username; a blank value makes the catalog public.
+     * @param password paired with [username] and stored verbatim. The caller resolves
+     *           "leave the password unchanged" before calling, because it also needs the
+     *           concrete value to validate the edited address against the server.
+     * @return the saved entity, or null when [id] no longer exists or [url] is unusable.
+     */
+    suspend fun updateCatalog(
+        id: String,
+        url: String,
+        title: String? = null,
+        username: String? = null,
+        password: String? = null
+    ): CatalogEntity?
+
+    /**
      * Finds the saved catalog whose credentials should be sent with a request to [url].
      *
      * Matches on scheme, host and effective port, because OPDS servers routinely link to
@@ -83,6 +105,35 @@ class DefaultCatalogRepository(
         )
         withContext(dispatchers.io) { catalogDao.upsertCatalog(entity) }
         return entity
+    }
+
+    override suspend fun updateCatalog(
+        id: String,
+        url: String,
+        title: String?,
+        username: String?,
+        password: String?
+    ): CatalogEntity? {
+        val normalized = normalizeUrl(url) ?: return null
+        val credentials = CatalogCredentials.ofOrNull(username, password)
+
+        return withContext(dispatchers.io) {
+            val existing = catalogDao.getCatalogById(id) ?: return@withContext null
+            val newId = stableIdFor(normalized)
+            val entity = CatalogEntity(
+                id = newId,
+                url = normalized,
+                title = title?.trim()?.takeIf { it.isNotEmpty() },
+                username = credentials?.username,
+                password = credentials?.password,
+                addedDate = existing.addedDate
+            )
+            // The id is derived from the URL, so a changed address is a different row.
+            // Drop the old one first or the list would show the catalog twice.
+            if (newId != id) catalogDao.deleteCatalogById(id)
+            catalogDao.upsertCatalog(entity)
+            entity
+        }
     }
 
     override suspend fun findCatalogForUrl(url: String): CatalogEntity? {

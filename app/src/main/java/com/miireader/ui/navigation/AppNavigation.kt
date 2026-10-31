@@ -123,9 +123,15 @@ fun AppNavigation(
 
             CatalogScreen(
                 uiState = uiState,
-                onAddCatalog = { url, username, password ->
-                    viewModel.addCatalog(url, username, password)
+                onSaveCatalog = { id, url, username, password ->
+                    if (id == null) {
+                        viewModel.addCatalog(url, username, password)
+                    } else {
+                        viewModel.saveEditedCatalog(url, username, password)
+                    }
                 },
+                onEditCatalog = viewModel::startEditingCatalog,
+                onCancelEdit = viewModel::cancelEditingCatalog,
                 onRemoveCatalog = viewModel::removeCatalog,
                 onOpenFeed = viewModel::openFeed,
                 onCloseFeed = viewModel::closeFeed,

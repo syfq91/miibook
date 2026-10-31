@@ -32,6 +32,10 @@ class FakeCatalogRepository(
     var addCount: Int = 0
         private set
 
+    /** Number of update attempts accepted. */
+    var updateCount: Int = 0
+        private set
+
     /** Number of remove attempts accepted. */
     var removeCount: Int = 0
         private set
@@ -63,6 +67,33 @@ class FakeCatalogRepository(
             addedDate = System.currentTimeMillis()
         )
         _catalogs.value = _catalogs.value.filterNot { it.id == entity.id } + entity
+        return entity
+    }
+
+    override suspend fun updateCatalog(
+        id: String,
+        url: String,
+        title: String?,
+        username: String?,
+        password: String?
+    ): CatalogEntity? {
+        if (shouldFailWrites) throw IllegalStateException("write failed")
+
+        val trimmed = url.trim()
+        if (!trimmed.startsWith("http://") && !trimmed.startsWith("https://")) return null
+
+        val existing = _catalogs.value.find { it.id == id } ?: return null
+        updateCount++
+        val credentials = CatalogCredentials.ofOrNull(username, password)
+        val entity = CatalogEntity(
+            id = trimmed,
+            url = trimmed,
+            title = title,
+            username = credentials?.username,
+            password = credentials?.password,
+            addedDate = existing.addedDate
+        )
+        _catalogs.value = _catalogs.value.filterNot { it.id == id || it.id == entity.id } + entity
         return entity
     }
 

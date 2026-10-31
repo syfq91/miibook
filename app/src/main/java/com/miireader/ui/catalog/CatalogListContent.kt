@@ -16,6 +16,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -34,45 +35,88 @@ import com.miireader.ui.components.EpaperButton
 import com.miireader.ui.components.EpaperCard
 import com.miireader.ui.components.EpaperEmptyState
 import com.miireader.ui.components.EpaperIconButton
+import com.miireader.ui.components.EpaperLoadingIndicator
 import com.miireader.ui.theme.DarkGray
 import com.miireader.ui.theme.EpaperDimensions
 import com.miireader.ui.theme.NearBlack
 
 /**
- * The saved-catalog list: add a feed by URL, open one, or remove one.
+ * The saved-catalog list: add or edit a feed by URL, open one, or remove one.
  *
- * The add field is deliberately a fixed-height text field rather than a floating overlay,
- * so the layout never shifts under it — important on e-paper, where a shifting layout
- * forces a full-screen repaint.
+ * The add/edit field is deliberately a fixed-height text field rather than a floating
+ * overlay, so the layout never shifts under it — important on e-paper, where a shifting
+ * layout forces a full-screen repaint. Editing reuses the same form (prefilled) instead of
+ * opening a dialog for the same reason.
  */
 @Composable
 internal fun CatalogListContent(
     uiState: CatalogUiState,
-    onAddCatalog: (String, String?, String?) -> Unit,
+    onSaveCatalog: (String?, String, String?, String?) -> Unit,
+    onEditCatalog: (String) -> Unit,
+    onCancelEdit: () -> Unit,
     onRemoveCatalog: (String) -> Unit,
     onOpenFeed: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var draftUrl by rememberSaveable { mutableStateOf("") }
-    var draftUsername by rememberSaveable { mutableStateOf("") }
+    val editingCatalog = uiState.editingCatalog
+    val editingId = editingCatalog?.id
+
+    // Keyed on the edit target: switching catalogs (or leaving edit mode) refills the
+    // form, while typing survives a recomposition or a rotation.
+    var draftUrl by rememberSaveable(editingId) {
+        mutableStateOf(editingCatalog?.url.orEmpty())
+    }
+    var draftUsername by rememberSaveable(editingId) {
+        mutableStateOf(editingCatalog?.username.orEmpty())
+    }
     // Not rememberSaveable: a typed password must not be serialized into the activity's
     // saved instance state.
-    var draftPassword by remember { mutableStateOf("") }
+    var draftPassword by remember(editingId) { mutableStateOf("") }
 
     val submitCatalog: () -> Unit = {
-        if (draftUrl.isNotBlank()) {
-            onAddCatalog(
+        if (draftUrl.isNotBlank() && !uiState.isAddingCatalog) {
+            onSaveCatalog(
+                editingId,
                 draftUrl.trim(),
                 draftUsername.trim().takeIf { it.isNotEmpty() },
                 draftPassword.takeIf { draftUsername.isNotBlank() }
             )
-            draftUrl = ""
-            draftUsername = ""
-            draftPassword = ""
+            // An edit keeps the form until the save succeeds (so a rejected address does
+            // not throw away the input); a new catalog is cleared immediately.
+            if (editingId == null) {
+                draftUrl = ""
+                draftUsername = ""
+                draftPassword = ""
+            }
         }
     }
 
     Column(modifier = modifier.fillMaxSize()) {
+        if (editingCatalog != null) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(
+                        start = EpaperDimensions.PaddingLarge,
+                        top = EpaperDimensions.PaddingLarge,
+                        end = EpaperDimensions.PaddingLarge
+                    ),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Editing ${editingCatalog.displayTitle}",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = NearBlack,
+                    modifier = Modifier.weight(1f)
+                )
+                EpaperButton(
+                    text = "Cancel",
+                    onClick = onCancelEdit,
+                    enabled = !uiState.isAddingCatalog
+                )
+            }
+        }
+
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -99,7 +143,7 @@ internal fun CatalogListContent(
             Spacer(modifier = Modifier.width(EpaperDimensions.PaddingMedium))
 
             EpaperButton(
-                text = "Add",
+                text = if (editingCatalog != null) "Save" else "Add",
                 onClick = submitCatalog,
                 enabled = !uiState.isAddingCatalog && draftUrl.isNotBlank()
             )
@@ -134,7 +178,15 @@ internal fun CatalogListContent(
             OutlinedTextField(
                 value = draftPassword,
                 onValueChange = { draftPassword = it },
-                label = { Text("Password (optional)") },
+                label = {
+                    Text(
+                        if (editingCatalog?.hasPassword == true) {
+                            "Password (blank = keep)"
+                        } else {
+                            "Password (optional)"
+                        }
+                    )
+                },
                 singleLine = true,
                 visualTransformation = PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(
@@ -143,6 +195,21 @@ internal fun CatalogListContent(
                 ),
                 keyboardActions = KeyboardActions(onDone = { submitCatalog() }),
                 modifier = Modifier.weight(1f)
+            )
+        }
+
+        if (uiState.isAddingCatalog || uiState.isLoadingFeed) {
+            EpaperLoadingIndicator(
+                text = when {
+                    uiState.isAddingCatalog && editingId == null -> "Checking catalog..."
+                    uiState.isAddingCatalog -> "Saving changes..."
+                    else -> "Loading feed..."
+                },
+                modifier = Modifier.padding(
+                    start = EpaperDimensions.PaddingLarge,
+                    end = EpaperDimensions.PaddingLarge,
+                    bottom = EpaperDimensions.PaddingSmall
+                )
             )
         }
 
@@ -170,6 +237,7 @@ internal fun CatalogListContent(
                     CatalogRow(
                         catalog = catalog,
                         onOpen = { onOpenFeed(catalog.url) },
+                        onEdit = { onEditCatalog(catalog.id) },
                         onRemove = { onRemoveCatalog(catalog.id) }
                     )
                 }
@@ -178,11 +246,12 @@ internal fun CatalogListContent(
     }
 }
 
-/** One saved catalog: title, address, and separate open and remove actions. */
+/** One saved catalog: title, address, and separate open, edit, and remove actions. */
 @Composable
 private fun CatalogRow(
     catalog: CatalogItemUi,
     onOpen: () -> Unit,
+    onEdit: () -> Unit,
     onRemove: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -209,6 +278,12 @@ private fun CatalogRow(
                     color = DarkGray
                 )
             }
+
+            EpaperIconButton(
+                icon = Icons.Default.Edit,
+                contentDescription = "Edit ${catalog.displayTitle}",
+                onClick = onEdit
+            )
 
             EpaperIconButton(
                 icon = Icons.Default.Delete,

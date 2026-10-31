@@ -233,4 +233,60 @@ class DefaultCatalogRepositoryTest {
             repository.findCatalogForUrl("https://catalog.example.org/opds/books")?.username
         )
     }
+
+    @Test
+    fun `updating a catalog changes its address without duplicating it`() = runTest(testDispatcher) {
+        val original = repository.addCatalog("https://catalog.example.org/opds")!!
+
+        val updated = repository.updateCatalog(
+            id = original.id,
+            url = "https://catalog.example.org/opds/v2",
+            title = "Example v2"
+        )
+
+        assertEquals("https://catalog.example.org/opds/v2", updated?.url)
+        assertEquals("Example v2", updated?.title)
+        assertNotEquals(original.id, updated?.id)
+        assertEquals(1, fakeDao.countCatalogs())
+        assertNull("the old address must be gone", fakeDao.getCatalogById(original.id))
+    }
+
+    @Test
+    fun `updating only the credentials keeps the catalog id and position`() = runTest(testDispatcher) {
+        val original = repository.addCatalog("https://catalog.example.org/opds")!!
+        // Pin the timestamp so "carried across" is observable, not a same-millisecond tie.
+        fakeDao.upsertCatalog(original.copy(addedDate = 1_000L))
+
+        val updated = repository.updateCatalog(
+            id = original.id,
+            url = "https://catalog.example.org/opds",
+            title = "Example",
+            username = "reader",
+            password = "s3cret"
+        )
+
+        assertEquals(original.id, updated?.id)
+        assertEquals(1_000L, updated?.addedDate)
+        assertEquals("reader", fakeDao.getCatalogById(original.id)?.username)
+        assertEquals(1, fakeDao.countCatalogs())
+    }
+
+    @Test
+    fun `updating with an unusable address leaves the saved catalog untouched`() =
+        runTest(testDispatcher) {
+            val original = repository.addCatalog("https://catalog.example.org/opds")!!
+
+            assertNull(repository.updateCatalog(original.id, "ftp://catalog.example.org/opds"))
+
+            assertEquals(1, fakeDao.countCatalogs())
+            assertEquals("https://catalog.example.org/opds", fakeDao.getCatalogById(original.id)?.url)
+        }
+
+    @Test
+    fun `updating an unknown catalog id saves nothing`() = runTest(testDispatcher) {
+        assertNull(
+            repository.updateCatalog("cat-does-not-exist", "https://catalog.example.org/opds")
+        )
+        assertEquals(0, fakeDao.countCatalogs())
+    }
 }

@@ -46,6 +46,9 @@ class CatalogViewModel(
     private val _isAddingCatalog = MutableStateFlow(false)
     private val _isLoadingFeed = MutableStateFlow(false)
 
+    /** The saved catalog being edited in the add form, or null when adding a new one. */
+    private val _editingCatalog = MutableStateFlow<CatalogEditUi?>(null)
+
     /** The feed currently on screen, or null when showing the saved-catalog list. */
     private val _currentFeed = MutableStateFlow<CatalogFeed?>(null)
     private val _currentFeedUrl = MutableStateFlow<String?>(null)
@@ -87,8 +90,9 @@ class CatalogViewModel(
     val uiState: StateFlow<CatalogUiState> = combine(
         catalogItemsFlow,
         browseFlow,
-        statusFlow
-    ) { catalogs, browse, status ->
+        statusFlow,
+        _editingCatalog
+    ) { catalogs, browse, status, editingCatalog ->
         CatalogUiState(
             savedCatalogs = catalogs,
             feedTitle = browse.feed?.title,
@@ -97,6 +101,7 @@ class CatalogViewModel(
             navigation = browse.feed?.navigation.orEmpty(),
             isLoadingFeed = status.isLoadingFeed,
             isAddingCatalog = status.isAddingCatalog,
+            editingCatalog = editingCatalog,
             errorMessage = status.errorMessage
         )
     }.stateIn(
@@ -106,12 +111,61 @@ class CatalogViewModel(
     )
 
     /**
-     * Validates [url], fetches and parses its feed (using optional HTTP Basic
-     * [username]/[password]), and only then saves it. A catalog that cannot be read is
-     * never persisted, so the list only ever holds addresses that have worked at least
-     * once.
+     * Validates [url] and saves it as a new catalog, fetching its feed (using optional
+     * HTTP Basic [username]/[password]) and taking the title from it. A catalog that
+     * cannot be read is never persisted, so the list only ever holds addresses that have
+     * worked at least once.
      */
     fun addCatalog(url: String, username: String? = null, password: String? = null) {
+        saveCatalog(catalogId = null, url = url, username = username, password = password)
+    }
+
+    /**
+     * Loads the saved catalog [id] into the form so its address or credentials can be
+     * changed. The stored password is deliberately not copied into the form; the screen
+     * only learns whether one exists.
+     */
+    fun startEditingCatalog(id: String) {
+        viewModelScope.launch {
+            _errorMessage.value = null
+            val catalog = catalogRepository.getCatalogById(id) ?: return@launch
+            _editingCatalog.value = CatalogEditUi(
+                id = catalog.id,
+                url = catalog.url,
+                username = catalog.username.orEmpty(),
+                displayTitle = catalog.title ?: hostOf(catalog.url),
+                hasPassword = !catalog.password.isNullOrEmpty()
+            )
+        }
+    }
+
+    /** Leaves edit mode without touching the saved catalog. */
+    fun cancelEditingCatalog() {
+        _editingCatalog.value = null
+        _errorMessage.value = null
+    }
+
+    /** Saves the form contents as a change to the catalog currently being edited. */
+    fun saveEditedCatalog(url: String, username: String?, password: String?) {
+        val id = _editingCatalog.value?.id ?: return
+        saveCatalog(catalogId = id, url = url, username = username, password = password)
+    }
+
+    /**
+     * The one path that writes a catalog, whether it is new or being edited.
+     *
+     * The address is re-fetched before it is saved, so an edit that points at a dead feed
+     * fails loudly instead of quietly breaking the saved entry. A blank password in edit
+     * mode means "keep the stored one" as long as the username is unchanged; the form can
+     * never show the old password, and asking for it again on every edit would be hostile.
+     * A changed username is treated as a new account, so the old password is not reused.
+     */
+    private fun saveCatalog(
+        catalogId: String?,
+        url: String,
+        username: String?,
+        password: String?
+    ) {
         if (_isAddingCatalog.value) return
         if (!OpdsCatalogSource.isValidUrl(url)) {
             _errorMessage.value = "That doesn't look like a valid catalog address."
@@ -120,19 +174,56 @@ class CatalogViewModel(
         viewModelScope.launch {
             _isAddingCatalog.value = true
             _errorMessage.value = null
-            val credentials = CatalogCredentials.ofOrNull(username, password)
+            val typedUsername = username?.trim()?.takeIf { it.isNotEmpty() }
             try {
+                val existing = catalogId?.let { catalogRepository.getCatalogById(it) }
+                val resolvedPassword = if (
+                    typedUsername != null &&
+                    password.isNullOrEmpty() &&
+                    existing?.username == typedUsername
+                ) {
+                    existing.password
+                } else {
+                    password
+                }
+                val credentials = CatalogCredentials.ofOrNull(typedUsername, resolvedPassword)
                 val feed = catalogSource.loadFeed(url, credentials)
-                catalogRepository.addCatalog(
-                    url = url,
-                    title = feed.title,
-                    username = credentials?.username,
-                    password = credentials?.password
-                )
+                if (catalogId == null) {
+                    catalogRepository.addCatalog(
+                        url = url,
+                        title = feed.title,
+                        username = credentials?.username,
+                        password = credentials?.password
+                    )
+                } else {
+                    val updated = catalogRepository.updateCatalog(
+                        id = catalogId,
+                        url = url,
+                        title = feed.title,
+                        username = credentials?.username,
+                        password = credentials?.password
+                    )
+                    if (updated == null) {
+                        // The row disappeared while the feed was being fetched (removed on
+                        // another screen, or the database was cleared). Do not resurrect it.
+                        _editingCatalog.value = null
+                        _errorMessage.value = "That catalog is no longer saved. Add it again."
+                        return@launch
+                    }
+                    // Only leave the form if it is still showing this catalog: the user
+                    // may have started editing another one while the save was in flight.
+                    if (_editingCatalog.value?.id == catalogId) {
+                        _editingCatalog.value = null
+                    }
+                }
             } catch (e: CatalogException) {
                 _errorMessage.value = e.error.message
             } catch (e: Exception) {
-                _errorMessage.value = "Couldn't add that catalog: ${e.message ?: "unknown error"}"
+                _errorMessage.value = if (catalogId == null) {
+                    "Couldn't add that catalog: ${e.message ?: "unknown error"}"
+                } else {
+                    "Couldn't save that catalog: ${e.message ?: "unknown error"}"
+                }
             } finally {
                 _isAddingCatalog.value = false
             }
@@ -144,6 +235,8 @@ class CatalogViewModel(
             _errorMessage.value = null
             try {
                 catalogRepository.removeCatalog(id)
+                // Removing the row being edited must not leave the form pointing at it.
+                if (_editingCatalog.value?.id == id) _editingCatalog.value = null
             } catch (e: Exception) {
                 _errorMessage.value = "Couldn't remove that catalog: ${e.message}"
             }

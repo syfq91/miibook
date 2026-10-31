@@ -17,7 +17,7 @@ Last reviewed: 2026-10-31 (OPDS HTTP Basic auth + tablet smoke test).
 | `assembleDebug` and `assembleRelease` succeed | Actual e-paper refresh, ghosting, contrast |
 | EPUB parsing/opening against generated fixtures | Hardware page-turn key dispatch |
 | OPDS parsing against fixtures; HTTP/auth layer against a **loopback** server | OPDS over the public internet (TLS, proxies, slow servers) |
-| Manual adb smoke test on an Android 16 tablet: add authenticated catalog, browse seven sections and nested series feeds, download a 6.8 MB EPUB, import it, open it in the Readium navigator, rejected-password wording | E-paper rendering, rotation on a panel, long-session stability |
+| Manual adb smoke test on an Android 16 tablet: add authenticated catalog, edit its address and credentials, browse seven sections and nested series feeds, download a 6.8 MB EPUB, import it, open it in the Readium navigator, rejected-password wording | E-paper rendering, rotation on a panel, long-session stability |
 | Room persistence across reopen, destructive upgrade from v1–v3 | Behaviour on a device upgrade path with real user data |
 | E-paper UI rules, enforced by a source-scanning test | Rendering quality, memory use, performance under load |
 
