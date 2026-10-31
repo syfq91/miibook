@@ -1,21 +1,23 @@
 # Known Limitations
 
-MiiReader is built and verified on a machine with **no Android device and no
-emulator**. Everything below is either a known gap in that verification or a
-deliberate limitation of the current build. Nothing in this file may be
-"resolved" without evidence from a real device.
+MiiReader is built on a machine with **no e-paper device and no emulator**.
+One Android 16 LCD tablet (Samsung SM-X115) was connected for a manual adb
+smoke test on 2026-10-31; that is the only physical-device evidence so far.
+Everything below is either a known gap in that verification or a deliberate
+limitation of the current build. Nothing in this file may be "resolved" without
+evidence from a real device.
 
-Last reviewed: 2026-10-31 (OPDS HTTP Basic auth).
+Last reviewed: 2026-10-31 (OPDS HTTP Basic auth + tablet smoke test).
 
 ## 1. How this project is verified
 
 | Verified here | Not verified here |
 |---|---|
-| 155 local unit tests (JVM + Robolectric) | Anything on a physical screen |
+| 160 local unit tests (JVM + Robolectric) | Anything on an e-paper screen |
 | `assembleDebug` and `assembleRelease` succeed | Actual e-paper refresh, ghosting, contrast |
 | EPUB parsing/opening against generated fixtures | Hardware page-turn key dispatch |
 | OPDS parsing against fixtures; HTTP/auth layer against a **loopback** server | OPDS over the public internet (TLS, proxies, slow servers) |
-| One authenticated LAN catalog (BookFlow) browsed, a 6.8 MB EPUB downloaded, and its metadata extracted with the real Readium engine | UI, database, and queue wiring on a device |
+| Manual adb smoke test on an Android 16 tablet: add authenticated catalog, browse seven sections and nested series feeds, download a 6.8 MB EPUB, import it, open it in the Readium navigator, rejected-password wording | E-paper rendering, rotation on a panel, long-session stability |
 | Room persistence across reopen, destructive upgrade from v1–v3 | Behaviour on a device upgrade path with real user data |
 | E-paper UI rules, enforced by a source-scanning test | Rendering quality, memory use, performance under load |
 
@@ -105,8 +107,12 @@ exercised manually with a temporary probe: 401 wording, root/acquisition feeds,
 a 6.8 MB EPUB download, and metadata extraction all worked. Still not covered:
 the public internet, TLS interception/cert quirks, captive portals, proxies,
 very large feeds, servers that stream slowly until Readium's timeout, and
-real-world EPUBs with DRM or exotic packaging. `Internet` permission exists;
-device-side catalog behaviour is unverified.
+real-world EPUBs with DRM or exotic packaging. `Internet` permission exists.
+The manifest explicitly permits **cleartext HTTP** (`network_security_config.xml`)
+because self-hosted LAN catalogs are commonly HTTP-only; prefer an HTTPS
+catalog when one is available. The full add → browse → download → import →
+render path was exercised manually on the tablet (see the verification matrix
+above); public-internet and TLS paths remain untested.
 
 ### 2.9 Catalog credentials are stored in plain text
 
@@ -117,14 +123,16 @@ dumps, and no per-catalog "forget password" action beyond removing and re-adding
 the catalog. Only HTTP Basic is supported: OPDS authentication documents,
 OAuth, Digest, and client certificates are not. The custom-header path (and the
 401/403 wording) is unit-tested over loopback and was verified end to end
-against a local BookFlow server, but not on an e-paper device.
+against a local BookFlow server and on an Android 16 tablet, but not on an
+e-paper device.
 
 ### 2.10 No instrumentation or UI tests
 
-The `androidTest` sourceset holds only AGP scaffolding. There is no emulator
-on the build machine, so no UI test has ever run: navigation flows, Compose
-layout, WebView rendering, and activity recreation on a real rotation are
-exercised only to the limit Robolectric allows.
+The `androidTest` sourceset holds only AGP scaffolding. There is no emulator,
+so there is no automated UI test suite. One **manual adb smoke test** ran on an
+Android 16 tablet (2026-10-31): navigation, the add-catalog form, feed lists,
+the download queue, and EPUB rendering were driven and inspected, but e-paper
+layout, refresh, and rotation on a panel remain untested.
 
 ## 3. First-hardware bring-up checklist
 

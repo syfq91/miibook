@@ -132,7 +132,7 @@ class CatalogViewModel(
             } catch (e: CatalogException) {
                 _errorMessage.value = e.error.message
             } catch (e: Exception) {
-                _errorMessage.value = "Couldn't add that catalog: ${e.message}"
+                _errorMessage.value = "Couldn't add that catalog: ${e.message ?: "unknown error"}"
             } finally {
                 _isAddingCatalog.value = false
             }
@@ -167,7 +167,7 @@ class CatalogViewModel(
             } catch (e: CatalogException) {
                 _errorMessage.value = e.error.message
             } catch (e: Exception) {
-                _errorMessage.value = "Couldn't open that catalog: ${e.message}"
+                _errorMessage.value = "Couldn't open that catalog: ${e.message ?: "unknown error"}"
             } finally {
                 _isLoadingFeed.value = false
             }

@@ -1,6 +1,9 @@
 package com.miireader.data.opds
 
+import com.miireader.core.dispatchers.CoroutineDispatchers
+import com.miireader.core.dispatchers.DefaultCoroutineDispatchers
 import com.miireader.core.error.AppError
+import kotlinx.coroutines.withContext
 import org.readium.r2.shared.util.AbsoluteUrl
 import org.readium.r2.shared.util.Try
 import org.readium.r2.shared.util.http.DefaultHttpClient
@@ -28,25 +31,32 @@ interface OpdsHttpClient {
  * [OpdsHttpClient] backed by Readium's `DefaultHttpClient`, which handles redirects,
  * timeouts, and TLS the same way the rest of the toolkit does.
  */
-class ReadiumOpdsHttpClient : OpdsHttpClient {
+class ReadiumOpdsHttpClient(
+    private val dispatchers: CoroutineDispatchers = DefaultCoroutineDispatchers()
+) : OpdsHttpClient {
 
     private val client = DefaultHttpClient()
 
-    override suspend fun get(url: String, credentials: CatalogCredentials?): ByteArray {
-        val absolute = AbsoluteUrl(url)
-            ?: throw AppError.NetworkError("That doesn't look like a valid address.").asException()
+    override suspend fun get(url: String, credentials: CatalogCredentials?): ByteArray =
+        // Readium's client reads the body synchronously, and several callers start from
+        // viewModelScope (main thread). Without this hop Android throws
+        // NetworkOnMainThreadException the moment the response body is consumed.
+        withContext(dispatchers.io) {
+            val absolute = AbsoluteUrl(url)
+                ?: throw AppError.NetworkError("That doesn't look like a valid address.")
+                    .asException()
 
-        val request = HttpRequest(absolute) {
-            method = HttpRequest.Method.GET
-            credentials?.let { setHeader("Authorization", it.toAuthorizationHeader()) }
-        }
+            val request = HttpRequest(absolute) {
+                method = HttpRequest.Method.GET
+                credentials?.let { setHeader("Authorization", it.toAuthorizationHeader()) }
+            }
 
-        val authenticated = credentials != null
-        return when (val result = client.stream(request)) {
-            is Try.Success -> readBody(result.value, authenticated)
-            is Try.Failure -> throw httpFailure(result.failureOrNull(), authenticated)
+            val authenticated = credentials != null
+            when (val result = client.stream(request)) {
+                is Try.Success -> readBody(result.value, authenticated)
+                is Try.Failure -> throw httpFailure(result.failureOrNull(), authenticated)
+            }
         }
-    }
 
     private fun readBody(response: HttpStreamResponse, authenticated: Boolean): ByteArray {
         val status = response.response.statusCode.code

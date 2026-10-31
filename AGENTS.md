@@ -101,6 +101,12 @@ The docs online are often for a different version. These bite hard:
   Map `ErrorResponse.status.code` yourself — otherwise the user sees only
   `"HTTP Error 401"`. (Added with the HTTP Basic auth work; see
   `ReadiumOpdsHttpClient` / `ReadiumBookDownloader`.)
+- `DefaultHttpClient` reads the response body **synchronously on the calling
+  dispatcher**; being a `suspend` function does not make it asynchronous.
+  Called from `viewModelScope` it throws `NetworkOnMainThreadException` on a
+  device (unit tests miss it). `ReadiumOpdsHttpClient` therefore wraps the
+  whole operation in `withContext(dispatchers.io)`; give any new client the
+  same treatment.
 - `EpubNavigatorFragment`'s constructor is `internal`. Build it via
   `EpubNavigatorFactory(publication).createFragmentFactory(...)` +
   `factory.instantiate(...)`. Install
@@ -213,7 +219,7 @@ Only Basic is supported — no OPDS auth documents/OAuth/DRM — and the passwor
 is stored in plain text in the app-private database (`LIMITATIONS.md` §2.9).
 Database schema is now **v4** (v3 → v4 adds the credential columns).
 
-Phase 6 added the hardening suite (155 tests total): destructive-migration
+Phase 6 added the hardening suite (160 tests total): destructive-migration
 tests for v1/v2/v3 databases, malformed/large/unsupported EPUB fixtures against
 real Readium, real imports over `content://` streams, loopback HTTP tests for
 every network failure mode, mid-stream interruption of downloads, offline
@@ -225,11 +231,21 @@ checklist. Two bugs those tests caught are fixed: author metadata came from
 `Contributor.toString()`, and rejected imports leaked `import_*.epub` scratch
 files.
 
-**Verification is unit tests plus `assembleDebug`/`assembleRelease` only** —
-there is no device or emulator on this machine. Page rendering, hardware
-page-turn keys, rotation, e-paper refresh, *every Phase 4 network and download
-path against the real internet*, *all Phase 5 device behaviour*, memory and
-rendering performance, and R8-minified release behaviour have **not** been
-observed on hardware; never claim any of them work without testing them. The
-Definition-of-Done item "verified on at least one target e-paper device" is
-**not met** — the gate is `LIMITATIONS.md` §3.
+**Verification is unit tests plus `assembleDebug`/`assembleRelease`, and one
+manual adb smoke test on an Android 16 tablet (Samsung SM-X115, 2026-10-31).**
+That session covered the authenticated BookFlow catalog: add with
+username/password, browse all seven sections and nested series feeds, download
+a 6.8 MB EPUB, confirm it imported with correct metadata, open it in the
+Readium navigator, and check the rejected-password wording. It also caught two
+device-only blockers now fixed: Android blocked cleartext HTTP
+(`network_security_config.xml` now permits it for LAN catalogs) and Readium's
+blocking body read ran on Main (`ReadiumOpdsHttpClient` now hops to its
+injected IO dispatcher).
+
+There is still **no e-paper device and no emulator**. E-paper page rendering,
+refresh/ghosting, hardware page-turn keys, rotation on a panel, *Phase 4 paths
+over the public internet/TLS*, memory and rendering performance, and
+R8-minified release behaviour have **not** been observed on hardware; never
+claim any of them work without testing them. The Definition-of-Done item
+"verified on at least one target e-paper device" is **not met** — the gate is
+`LIMITATIONS.md` §3.

@@ -133,7 +133,9 @@ class DefaultAppContainer(override val context: Context) : AppContainer {
     }
 
     /** Injectable so the browser can be exercised against a fake feed in tests. */
-    private val opdsHttpClient: OpdsHttpClient by lazy { ReadiumOpdsHttpClient() }
+    private val opdsHttpClient: OpdsHttpClient by lazy {
+        ReadiumOpdsHttpClient(dispatchers)
+    }
 
     /** Injectable so the download queue can be exercised without a socket in tests. */
     private val bookDownloader: BookDownloader by lazy { ReadiumBookDownloader() }

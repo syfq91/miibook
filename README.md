@@ -8,9 +8,10 @@ Inspired by CrossPoint Reader's reading-focused design, but built as a native
 Android app — not a firmware reproduction.
 
 **Status:** v0.1.0 — all six phases of [`plan.md`](plan.md) implemented; this is
-a **release candidate**, not a verified product. Everything is backed by 155
-local unit tests plus debug/release builds — but no device or emulator exists
-on the build machine, so nothing has been observed on e-paper hardware. Read
+a **release candidate**, not a verified product. Everything is backed by 160
+local unit tests plus debug/release builds, and one manual adb smoke test on an
+Android 16 tablet. No e-paper device or emulator is available, so nothing has
+been observed on e-paper hardware. Read
 [`LIMITATIONS.md`](LIMITATIONS.md) before trusting anything on a real device.
 
 ## Features
@@ -84,7 +85,7 @@ Requires a JDK 17+ and the Android SDK (platform 36).
 ./gradlew assembleRelease        # release APK -> app/build/outputs/apk/release/
 ```
 
-(There is no release-variant unit-test task in AGP 9; the same 155 tests run
+(There is no release-variant unit-test task in AGP 9; the same 160 tests run
 against the debug variant, and `assembleRelease` verifies release compilation.)
 
 The release build is **unsigned** and **not minified** (R8 off): Readium ships
@@ -129,7 +130,7 @@ bring-up checklist in `LIMITATIONS.md` §3 against the release APK.
 
 ## Testing
 
-155 local unit tests cover the library, import (including malformed, empty,
+160 local unit tests cover the library, import (including malformed, empty,
 and unsupported EPUBs), reader state, bookmarks and progress across database
 restarts, database upgrades from v1–v3 schemas, the OPDS parser and HTTP
 layer (against fixtures and a loopback server, including HTTP Basic auth and
@@ -142,9 +143,11 @@ run under Robolectric (SDK 34).
 ./gradlew testDebugUnitTest
 ```
 
-There is no instrumentation/UI test suite — no emulator exists on the build
-machine. Rendering, page-turn keys, rotation on a panel, and e-paper refresh
-behavior must be verified on physical hardware per `LIMITATIONS.md` §3.
+There is no instrumentation/UI test suite — no emulator exists. A manual adb
+smoke test ran on an Android 16 tablet (authenticated catalog browsing, EPUB
+download/import, reading), but e-paper rendering, page-turn keys, rotation on a
+panel, and refresh behavior must be verified on target hardware per
+`LIMITATIONS.md` §3.
 
 ## Project structure
 

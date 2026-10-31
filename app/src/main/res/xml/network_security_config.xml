@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  OPDS catalogs are often self-hosted on a home LAN over plain HTTP (BookFlow,
+  Calibre-Web, Kavita). The address validator accepts http://, so the platform
+  must not reject those requests as "cleartext not permitted". HTTPS is still
+  used whenever a catalog offers it.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>

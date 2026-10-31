@@ -1,9 +1,13 @@
 package com.miireader.data.opds
 
+import com.miireader.core.dispatchers.CoroutineDispatchers
 import com.miireader.core.error.AppError
 import com.sun.net.httpserver.HttpServer
+import kotlin.coroutines.CoroutineContext
+import kotlinx.coroutines.CoroutineDispatcher
 import java.net.InetSocketAddress
 import java.net.ServerSocket
+import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -215,6 +219,32 @@ class ReadiumOpdsHttpClientTest {
             "message should say the credentials were rejected, was: ${error.message}",
             error.message.contains("rejected", ignoreCase = true)
         )
+    }
+
+    @Test
+    fun `network work is moved to the injected io dispatcher`() = runTest {
+        // Regression: viewModelScope starts on Main, and Readium reads the body
+        // synchronously. Without an IO hop, Android throws NetworkOnMainThreadException.
+        var dispatchedToIo = false
+        val ioDispatcher = StandardTestDispatcher(testScheduler)
+        val recording = object : CoroutineDispatcher() {
+            override fun dispatch(context: CoroutineContext, block: Runnable) {
+                dispatchedToIo = true
+                ioDispatcher.dispatch(context, block)
+            }
+        }
+        val ioClient = ReadiumOpdsHttpClient(
+            object : CoroutineDispatchers {
+                override val io: CoroutineDispatcher = recording
+                override val default: CoroutineDispatcher = recording
+                override val main: CoroutineDispatcher = recording
+            }
+        )
+        serve(status = 200, body = "<feed/>")
+
+        ioClient.get(url("/feed"))
+
+        assertTrue("expected get() to hop to the injected io dispatcher", dispatchedToIo)
     }
 
     @Test

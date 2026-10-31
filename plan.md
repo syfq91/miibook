@@ -389,7 +389,7 @@ Test visual ghosting and refresh behavior on physical hardware. Compose-level op
 
 > **Scope of this phase:** every checkbox except profiling is complete *as far as a
 > machine without hardware or an emulator can take it*. The suite grew 101 -> **131
-> tests** during this phase (**155** today, after the OPDS Basic-auth work), all green,
+> tests** during this phase (**160** today, after the OPDS Basic-auth work), all green,
 > and both `assembleDebug` and `assembleRelease` build.
 >
 > **What the new tests cover**
@@ -437,7 +437,7 @@ Test visual ghosting and refresh behavior on physical hardware. Compose-level op
 >
 > **Docs delivered:** `LIMITATIONS.md` (verification matrix, ten device-specific
 > limitation areas, first-hardware bring-up checklist), README rewrites (build/signing
-> docs, current feature list, 155-test overview).
+> docs, current feature list, 160-test overview).
 >
 > **Still open — needs hardware, do not claim otherwise:** the profiling checkbox (no
 > device to measure memory or rendering on), and the Definition-of-Done item "verified on
