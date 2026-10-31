@@ -31,6 +31,16 @@ data class DownloadEntity(
     @ColumnInfo(name = "media_type")
     val mediaType: String?,
 
+    /**
+     * HTTP Basic credentials copied from the catalog that produced this link, so retries
+     * and queue recovery after process death can still fetch a protected book.
+     */
+    @ColumnInfo(name = "username")
+    val username: String? = null,
+
+    @ColumnInfo(name = "password")
+    val password: String? = null,
+
     /** Download status: QUEUED, DOWNLOADING, COMPLETED, FAILED. */
     @ColumnInfo(name = "status")
     val status: String = "QUEUED",

@@ -1,6 +1,7 @@
 package com.miireader.test
 
 import com.miireader.data.download.DownloadManager
+import com.miireader.data.opds.CatalogCredentials
 import com.miireader.data.opds.CatalogLink
 
 /**
@@ -16,6 +17,9 @@ class FakeDownloadManager : DownloadManager {
 
     /** Titles and authors requested alongside each enqueue. */
     val enqueuedTitles = mutableListOf<Pair<String?, String?>>()
+
+    /** Credentials handed to the queue with each link (null for public catalogs). */
+    val enqueuedCredentials = mutableListOf<CatalogCredentials?>()
 
     /** Download ids passed to [cancelDownload]. */
     val cancelledIds = mutableListOf<String>()
@@ -43,11 +47,13 @@ class FakeDownloadManager : DownloadManager {
     override suspend fun enqueueDownload(
         link: CatalogLink,
         title: String?,
-        author: String?
+        author: String?,
+        credentials: CatalogCredentials?
     ): String? {
         enqueueFailure?.let { throw it }
         enqueuedLinks += link
         enqueuedTitles += title to author
+        enqueuedCredentials += credentials
         return nextEnqueueId
     }
 

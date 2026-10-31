@@ -19,6 +19,10 @@ interface CatalogDao {
     @Query("SELECT * FROM catalogs ORDER BY added_date DESC")
     fun getAllCatalogs(): Flow<List<CatalogEntity>>
 
+    /** All saved catalogs read once, for matching a feed URL against its credentials. */
+    @Query("SELECT * FROM catalogs")
+    suspend fun getAllCatalogsOnce(): List<CatalogEntity>
+
     @Query("SELECT * FROM catalogs WHERE id = :id LIMIT 1")
     suspend fun getCatalogById(id: String): CatalogEntity?
 

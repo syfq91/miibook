@@ -6,6 +6,7 @@ import com.miireader.core.error.ErrorHandler
 import com.miireader.data.local.DownloadEntity
 import com.miireader.data.local.DownloadStatus
 import com.miireader.data.local.entity.BookEntity
+import com.miireader.data.opds.CatalogCredentials
 import com.miireader.data.opds.CatalogLink
 import com.miireader.test.FakeBookDownloader
 import com.miireader.test.FakeBookRepository
@@ -244,6 +245,28 @@ class DefaultDownloadManagerTest {
         }
 
     @Test
+    fun `catalog credentials are stored on the queue row and sent to the downloader`() =
+        testScope.runTest {
+            val credentials = CatalogCredentials("reader", "s3cret")
+
+            val id = manager.enqueueDownload(epubLink(), "Moby Dick", null, credentials)!!
+            testDispatcher.scheduler.advanceUntilIdle()
+
+            val row = downloadRepository.getDownloadById(id)!!
+            assertEquals("reader", row.username)
+            assertEquals("s3cret", row.password)
+            assertEquals(listOf(credentials), downloader.requestedCredentials)
+        }
+
+    @Test
+    fun `a public catalog downloads without credentials`() = testScope.runTest {
+        manager.enqueueDownload(epubLink(), "Moby Dick", null)!!
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(listOf(null), downloader.requestedCredentials)
+    }
+
+    @Test
     fun `pending and interrupted downloads are recovered on startup`() =
         testScope.runTest {
             manager.shutdown()
@@ -254,6 +277,8 @@ class DefaultDownloadManagerTest {
                 title = "Queued Book",
                 author = "Author",
                 mediaType = "application/epub+zip",
+                username = "reader",
+                password = "s3cret",
                 status = DownloadStatus.QUEUED
             )
             val interruptedDownload = DownloadEntity(
@@ -262,6 +287,8 @@ class DefaultDownloadManagerTest {
                 title = "Interrupted Book",
                 author = "Author",
                 mediaType = "application/epub+zip",
+                username = "reader",
+                password = "s3cret",
                 status = DownloadStatus.DOWNLOADING
             )
             downloadRepository.upsertDownload(queuedDownload)
@@ -283,6 +310,13 @@ class DefaultDownloadManagerTest {
             val d2 = downloadRepository.getDownloadById("d-interrupted")!!
             assertEquals(DownloadStatus.COMPLETED, d1.status)
             assertEquals(DownloadStatus.COMPLETED, d2.status)
+
+            // Credentials survive process death with the queue row.
+            val credentials = CatalogCredentials("reader", "s3cret")
+            assertEquals(
+                listOf(credentials, credentials),
+                downloader.requestedCredentials
+            )
 
             newManager.shutdown()
         }

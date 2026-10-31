@@ -26,14 +26,15 @@ import org.robolectric.annotation.Config
  * pre-release (see AGENTS.md). These tests pin that contract down so it cannot drift
  * silently:
  *
- *  - a database left behind by an older install (schema version 1 or 2) opens at the
- *    current version 3 **without crashing**, with every legacy row dropped,
- *  - a fresh database starts empty at version 3,
+ *  - a database left behind by an older install (schema version 1, 2 or 3) opens at the
+ *    current version 4 **without crashing**, with every legacy row dropped,
+ *  - a fresh database starts empty at version 4,
  *  - books, reading progress, and bookmarks survive closing and reopening the database,
  *    which is the process-death path the reader depends on.
  *
  * The legacy schemas are reconstructed from the historical `AppDatabase` versions in
- * git (v1: Phase 1 tables; v2: adds `books.content_checksum`).
+ * git (v1: Phase 1 tables; v2: adds `books.content_checksum`; v3: adds catalogs and
+ * downloads; v4: adds HTTP Basic credential columns to both).
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
@@ -101,6 +102,39 @@ class AppDatabaseMigrationTest {
         legacy.execSQL(
             "CREATE INDEX IF NOT EXISTS index_bookmarks_book_id ON bookmarks (book_id)"
         )
+        if (version >= 3) {
+            // Version 3 added the catalog and download tables, without credentials.
+            legacy.execSQL(
+                """CREATE TABLE catalogs (
+                    id TEXT NOT NULL PRIMARY KEY,
+                    url TEXT NOT NULL,
+                    title TEXT,
+                    added_date INTEGER NOT NULL
+                )"""
+            )
+            legacy.execSQL(
+                """CREATE TABLE downloads (
+                    id TEXT NOT NULL PRIMARY KEY,
+                    url TEXT NOT NULL,
+                    title TEXT,
+                    author TEXT,
+                    media_type TEXT,
+                    status TEXT NOT NULL,
+                    progress REAL NOT NULL,
+                    total_bytes INTEGER NOT NULL,
+                    downloaded_bytes INTEGER NOT NULL,
+                    error_message TEXT,
+                    book_id TEXT,
+                    created_date INTEGER NOT NULL,
+                    completed_date INTEGER,
+                    temp_file_path TEXT
+                )"""
+            )
+            legacy.execSQL(
+                """INSERT INTO catalogs (id, url, title, added_date)
+                    VALUES ('cat-legacy', 'https://example.org/opds', 'Legacy Catalog', 1)"""
+            )
+        }
         legacy.execSQL(
             """INSERT INTO books (id, title, author, file_path, import_date, download_status)
                 VALUES ('legacy-1', 'Legacy Book', 'Old Author', '/tmp/legacy.epub', 1, 'LOCAL')"""
@@ -150,7 +184,7 @@ class AppDatabaseMigrationTest {
             db.close()
         }
 
-        assertEquals(3, currentVersion())
+        assertEquals(4, currentVersion())
     }
 
     @Test
@@ -175,11 +209,39 @@ class AppDatabaseMigrationTest {
             db.close()
         }
 
-        assertEquals(3, currentVersion())
+        assertEquals(4, currentVersion())
     }
 
     @Test
-    fun `a fresh install starts at version 3 with an empty library`() = runTest {
+    fun `a version 3 database with saved catalogs is wiped and upgraded`() = runTest {
+        createLegacyDatabase(version = 3)
+        assertEquals(3, currentVersion())
+
+        val db = AppDatabase.create(context)
+        try {
+            // Catalogs saved before credentials existed are dropped, not crash-migrated.
+            assertEquals(0, db.catalogDao().countCatalogs())
+
+            // The recreated schema carries the new credential columns.
+            val catalog = com.miireader.data.local.entity.CatalogEntity(
+                id = "cat-1",
+                url = "https://example.org/opds",
+                username = "reader",
+                password = "s3cret"
+            )
+            db.catalogDao().upsertCatalog(catalog)
+            val restored = db.catalogDao().getCatalogById("cat-1")
+            assertEquals("reader", restored?.username)
+            assertEquals("s3cret", restored?.password)
+        } finally {
+            db.close()
+        }
+
+        assertEquals(4, currentVersion())
+    }
+
+    @Test
+    fun `a fresh install starts at version 4 with an empty library`() = runTest {
         val db = AppDatabase.create(context)
         try {
             assertEquals(0, db.bookDao().getBookCount())
@@ -188,7 +250,7 @@ class AppDatabaseMigrationTest {
             db.close()
         }
 
-        assertEquals(3, currentVersion())
+        assertEquals(4, currentVersion())
     }
 
     @Test

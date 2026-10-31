@@ -8,6 +8,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Before
@@ -156,6 +157,63 @@ class ReadiumOpdsHttpClientTest {
             "message should suggest the connection is the problem, was: ${error.message}",
             error.message.contains("reach", ignoreCase = true) ||
                 error.message.contains("connection", ignoreCase = true)
+        )
+    }
+
+    @Test
+    fun `basic credentials are sent as an authorization header`() = runTest {
+        var authorization: String? = null
+        server.createContext("/secure") { exchange ->
+            authorization = exchange.requestHeaders.getFirst("Authorization")
+            val bytes = "<feed/>".toByteArray()
+            exchange.sendResponseHeaders(200, bytes.size.toLong())
+            exchange.responseBody.use { it.write(bytes) }
+        }
+
+        client.get(url("/secure"), CatalogCredentials("reader", "s3cret"))
+
+        assertEquals("Basic cmVhZGVyOnMzY3JldA==", authorization)
+    }
+
+    @Test
+    fun `a public catalog sends no authorization header`() = runTest {
+        var authorization: String? = null
+        server.createContext("/public") { exchange ->
+            authorization = exchange.requestHeaders.getFirst("Authorization")
+            val bytes = "<feed/>".toByteArray()
+            exchange.sendResponseHeaders(200, bytes.size.toLong())
+            exchange.responseBody.use { it.write(bytes) }
+        }
+
+        client.get(url("/public"))
+
+        assertNull(authorization)
+    }
+
+    @Test
+    fun `a 401 explains that a username and password are needed`() = runTest {
+        serve(status = 401, body = "{}", contentType = "application/opds-authentication+json")
+
+        val error = networkError { client.get(url("/feed")) }
+
+        assertTrue(
+            "message should mention credentials, was: ${error.message}",
+            error.message.contains("username", ignoreCase = true) &&
+                error.message.contains("password", ignoreCase = true)
+        )
+    }
+
+    @Test
+    fun `a 401 after credentials were supplied says they were rejected`() = runTest {
+        serve(status = 401, body = "{}", contentType = "application/opds-authentication+json")
+
+        val error = networkError {
+            client.get(url("/feed"), CatalogCredentials("reader", "wrong"))
+        }
+
+        assertTrue(
+            "message should say the credentials were rejected, was: ${error.message}",
+            error.message.contains("rejected", ignoreCase = true)
         )
     }
 

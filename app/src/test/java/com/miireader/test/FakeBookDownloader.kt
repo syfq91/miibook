@@ -1,6 +1,7 @@
 package com.miireader.test
 
 import com.miireader.data.download.BookDownloader
+import com.miireader.data.opds.CatalogCredentials
 import java.io.File
 import java.io.IOException
 
@@ -20,6 +21,9 @@ class FakeBookDownloader(
     /** Every URL passed to [downloadTo], in order. */
     val requestedUrls = mutableListOf<String>()
 
+    /** Credentials handed to [downloadTo], in order (null for public catalogs). */
+    val requestedCredentials = mutableListOf<CatalogCredentials?>()
+
     /** Every (downloaded, total) pair reported through the progress callback. */
     val progressReports = mutableListOf<Pair<Long, Long>>()
 
@@ -36,9 +40,11 @@ class FakeBookDownloader(
     override suspend fun downloadTo(
         url: String,
         target: File,
+        credentials: CatalogCredentials?,
         onProgress: suspend (downloaded: Long, total: Long) -> Unit
     ) {
         requestedUrls += url
+        requestedCredentials += credentials
         failure?.let { throw it }
 
         val body = registered[url]

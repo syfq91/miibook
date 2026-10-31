@@ -16,11 +16,12 @@ class OpdsCatalogSource(
     /**
      * Fetches [url] and parses it as an OPDS 1 (Atom) or OPDS 2 (JSON) feed.
      *
+     * @param credentials sent as HTTP Basic auth when the catalog is not public.
      * @throws AppError on an unreachable host, a non-2xx response, or a payload that
      *         neither Readium parser recognizes.
      */
-    suspend fun loadFeed(url: String): CatalogFeed {
-        val bytes = httpClient.get(url)
+    suspend fun loadFeed(url: String, credentials: CatalogCredentials? = null): CatalogFeed {
+        val bytes = httpClient.get(url, credentials)
         return when (val result = parser.parse(bytes, url)) {
             is OpdsFeedParser.Result.Success -> result.feed
             is OpdsFeedParser.Result.Failure -> throw result.error.asException()

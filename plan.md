@@ -132,8 +132,14 @@ Features:
 - Track download progress and errors.
 - Prevent duplicate downloads where practical.
 - Allow downloaded books to open offline.
+- Optional HTTP Basic sign-in per saved catalog (username/password), applied to
+  feeds and acquisition links on the same scheme/host/port.
 
-Support public OPDS catalogs first. Treat authentication, DRM, and vendor-specific catalog extensions as separate features requiring explicit compatibility work.
+Public OPDS catalogs remain the default. HTTP Basic is the only authentication
+scheme implemented; OAuth/OPDS auth documents, DRM, and vendor-specific catalog
+extensions are separate features requiring explicit compatibility work. Catalog
+credentials are persisted in the app-private database in plain text (see
+`LIMITATIONS.md` §2.9).
 
 Do not bypass authentication or access restrictions.
 
@@ -383,13 +389,14 @@ Test visual ghosting and refresh behavior on physical hardware. Compose-level op
 
 > **Scope of this phase:** every checkbox except profiling is complete *as far as a
 > machine without hardware or an emulator can take it*. The suite grew 101 -> **131
-> tests**, all green, and both `assembleDebug` and `assembleRelease` build.
+> tests** during this phase (**155** today, after the OPDS Basic-auth work), all green,
+> and both `assembleDebug` and `assembleRelease` build.
 >
 > **What the new tests cover**
 > - `AppDatabaseMigrationTest` — because no migrations exist, the destructive-fallback
 >   contract is pinned: a real v1 and a real v2 SQLite file (schemas reconstructed from
->   git history) open at v3 **without crashing** with legacy rows dropped, a fresh install
->   starts empty at v3, and books/progress/bookmarks survive closing and reopening
+>   git history) open at v4 **without crashing** with legacy rows dropped, a fresh install
+>   starts empty at v4, and books/progress/bookmarks survive closing and reopening
 >   (process-death path).
 > - `EpubValidationTest` + `BookImporterRobolectricTest` (real Readium, real Room, real
 >   `content://` stream) — valid EPUB metadata, random bytes, a non-EPUB zip, an empty
@@ -428,9 +435,9 @@ Test visual ghosting and refresh behavior on physical hardware. Compose-level op
 > starting rules for when R8 is enabled. There is no `testReleaseUnitTest` task in
 > AGP 9, so release verification is compilation + packaging plus the debug-variant suite.
 >
-> **Docs delivered:** `LIMITATIONS.md` (verification matrix, nine device-specific
+> **Docs delivered:** `LIMITATIONS.md` (verification matrix, ten device-specific
 > limitation areas, first-hardware bring-up checklist), README rewrites (build/signing
-> docs, current feature list, 131-test overview).
+> docs, current feature list, 155-test overview).
 >
 > **Still open — needs hardware, do not claim otherwise:** the profiling checkbox (no
 > device to measure memory or rendering on), and the Definition-of-Done item "verified on

@@ -5,17 +5,18 @@ emulator**. Everything below is either a known gap in that verification or a
 deliberate limitation of the current build. Nothing in this file may be
 "resolved" without evidence from a real device.
 
-Last reviewed: 2026-10-15 (Phase 6).
+Last reviewed: 2026-10-31 (OPDS HTTP Basic auth).
 
 ## 1. How this project is verified
 
 | Verified here | Not verified here |
 |---|---|
-| ~130 local unit tests (JVM + Robolectric) | Anything on a physical screen |
+| 155 local unit tests (JVM + Robolectric) | Anything on a physical screen |
 | `assembleDebug` and `assembleRelease` succeed | Actual e-paper refresh, ghosting, contrast |
 | EPUB parsing/opening against generated fixtures | Hardware page-turn key dispatch |
-| OPDS parsing against fixtures; HTTP layer against a **loopback** server | A live OPDS catalog over the real internet |
-| Room persistence across reopen, destructive upgrade from v1/v2 | Behaviour on a device upgrade path with real user data |
+| OPDS parsing against fixtures; HTTP/auth layer against a **loopback** server | OPDS over the public internet (TLS, proxies, slow servers) |
+| One authenticated LAN catalog (BookFlow) browsed, a 6.8 MB EPUB downloaded, and its metadata extracted with the real Readium engine | UI, database, and queue wiring on a device |
+| Room persistence across reopen, destructive upgrade from v1–v3 | Behaviour on a device upgrade path with real user data |
 | E-paper UI rules, enforced by a source-scanning test | Rendering quality, memory use, performance under load |
 
 Verification = unit tests + APK builds. Per `plan.md`, no feature may be
@@ -93,18 +94,32 @@ code branches on the flag besides the diagnostics row.
 true)`: upgrading from any pre-release schema version **wipes** books,
 progress, bookmarks, catalogs, and downloads rather than migrating them.
 Acceptable while there are no users; it must change before a public release.
-`AppDatabaseMigrationTest` pins the current contract (v1/v2 databases open at
-v3 without crashing, with legacy rows dropped).
+`AppDatabaseMigrationTest` pins the current contract (v1/v2/v3 databases open
+at v4 without crashing, with legacy rows dropped).
 
 ### 2.8 OPDS catalogs and downloads over the real internet
 
 The HTTP layer is tested against a loopback server and feeds against
-fixtures. Not covered: TLS interception/cert quirks, captive portals, proxies,
+fixtures. One authenticated LAN catalog (BookFlow, OPDS 1 + HTTP Basic) was
+exercised manually with a temporary probe: 401 wording, root/acquisition feeds,
+a 6.8 MB EPUB download, and metadata extraction all worked. Still not covered:
+the public internet, TLS interception/cert quirks, captive portals, proxies,
 very large feeds, servers that stream slowly until Readium's timeout, and
 real-world EPUBs with DRM or exotic packaging. `Internet` permission exists;
-live-catalog behaviour is unverified.
+device-side catalog behaviour is unverified.
 
-### 2.9 No instrumentation or UI tests
+### 2.9 Catalog credentials are stored in plain text
+
+HTTP Basic username/password pairs are kept as plain columns on `catalogs` and
+on queued `downloads` in the app-private Room database. There is no encryption
+at rest (no Keystore-backed encryption), no credential redaction in database
+dumps, and no per-catalog "forget password" action beyond removing and re-adding
+the catalog. Only HTTP Basic is supported: OPDS authentication documents,
+OAuth, Digest, and client certificates are not. The custom-header path (and the
+401/403 wording) is unit-tested over loopback and was verified end to end
+against a local BookFlow server, but not on an e-paper device.
+
+### 2.10 No instrumentation or UI tests
 
 The `androidTest` sourceset holds only AGP scaffolding. There is no emulator
 on the build machine, so no UI test has ever run: navigation flows, Compose

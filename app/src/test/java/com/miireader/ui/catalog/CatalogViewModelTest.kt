@@ -1,5 +1,6 @@
 package com.miireader.ui.catalog
 
+import com.miireader.data.opds.CatalogCredentials
 import com.miireader.data.opds.OpdsCatalogSource
 import com.miireader.data.opds.OpdsFixtures
 import com.miireader.test.FakeCatalogRepository
@@ -7,6 +8,7 @@ import com.miireader.test.FakeDownloadManager
 import com.miireader.test.FakeOpdsHttpClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
@@ -298,6 +300,98 @@ class CatalogViewModelTest {
 
         val item = viewModel.uiState.value.savedCatalogs.first()
         assertEquals("gutenberg.example.org", item.displayTitle)
+
+        collectJob.cancel()
+    }
+
+    @Test
+    fun `adding a catalog sends and saves optional credentials`() = testScope.runTest {
+        httpClient.put(catalogUrl, OpdsFixtures.OPDS1_ATOM)
+
+        val collectJob = observeState()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.addCatalog(catalogUrl, username = " reader ", password = "s3cret")
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(
+            listOf(CatalogCredentials("reader", "s3cret")),
+            httpClient.requestedCredentials
+        )
+        val saved = catalogRepository.catalogsFlow.first().single()
+        assertEquals("reader", saved.username)
+        assertEquals("s3cret", saved.password)
+        assertNull(viewModel.uiState.value.errorMessage)
+
+        collectJob.cancel()
+    }
+
+    @Test
+    fun `adding a public catalog sends no credentials`() = testScope.runTest {
+        httpClient.put(catalogUrl, OpdsFixtures.OPDS1_ATOM)
+
+        val collectJob = observeState()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.addCatalog(catalogUrl)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(listOf(null), httpClient.requestedCredentials)
+        assertNull(catalogRepository.catalogsFlow.first().single().username)
+
+        collectJob.cancel()
+    }
+
+    @Test
+    fun `browsing a nested feed reuses the saved catalog credentials`() = testScope.runTest {
+        catalogRepository.addCatalog(
+            catalogUrl,
+            title = "Example",
+            username = "reader",
+            password = "s3cret"
+        )
+        val nested = "https://catalog.example.org/opds/new"
+        httpClient.put(nested, OpdsFixtures.OPDS1_ATOM)
+
+        val collectJob = observeState()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.openFeed(nested)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(
+            listOf(CatalogCredentials("reader", "s3cret")),
+            httpClient.requestedCredentials
+        )
+        assertEquals("Example Catalog", viewModel.uiState.value.feedTitle)
+
+        collectJob.cancel()
+    }
+
+    @Test
+    fun `downloads carry the catalog credentials`() = testScope.runTest {
+        catalogRepository.addCatalog(
+            catalogUrl,
+            title = "Example",
+            username = "reader",
+            password = "s3cret"
+        )
+
+        val collectJob = observeState()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.enqueueDownload(
+            url = "https://catalog.example.org/download/moby-dick.epub",
+            mediaType = "application/epub+zip",
+            title = "Moby Dick",
+            author = "Herman Melville"
+        )
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(
+            listOf(CatalogCredentials("reader", "s3cret")),
+            downloadManager.enqueuedCredentials
+        )
 
         collectJob.cancel()
     }

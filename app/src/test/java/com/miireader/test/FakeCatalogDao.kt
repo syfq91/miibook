@@ -28,6 +28,8 @@ class FakeCatalogDao(
     override fun getAllCatalogs(): Flow<List<CatalogEntity>> =
         _catalogs.map { list -> list.sortedByDescending { it.addedDate } }
 
+    override suspend fun getAllCatalogsOnce(): List<CatalogEntity> = _catalogs.value
+
     override suspend fun getCatalogById(id: String): CatalogEntity? =
         _catalogs.value.find { it.id == id }
 

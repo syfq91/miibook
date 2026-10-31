@@ -22,12 +22,14 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import com.miireader.ui.components.EpaperButton
 import com.miireader.ui.components.EpaperCard
 import com.miireader.ui.components.EpaperEmptyState
@@ -46,18 +48,39 @@ import com.miireader.ui.theme.NearBlack
 @Composable
 internal fun CatalogListContent(
     uiState: CatalogUiState,
-    onAddCatalog: (String) -> Unit,
+    onAddCatalog: (String, String?, String?) -> Unit,
     onRemoveCatalog: (String) -> Unit,
     onOpenFeed: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var draftUrl by rememberSaveable { mutableStateOf("") }
+    var draftUsername by rememberSaveable { mutableStateOf("") }
+    // Not rememberSaveable: a typed password must not be serialized into the activity's
+    // saved instance state.
+    var draftPassword by remember { mutableStateOf("") }
+
+    val submitCatalog: () -> Unit = {
+        if (draftUrl.isNotBlank()) {
+            onAddCatalog(
+                draftUrl.trim(),
+                draftUsername.trim().takeIf { it.isNotEmpty() },
+                draftPassword.takeIf { draftUsername.isNotBlank() }
+            )
+            draftUrl = ""
+            draftUsername = ""
+            draftPassword = ""
+        }
+    }
 
     Column(modifier = modifier.fillMaxSize()) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(EpaperDimensions.PaddingLarge),
+                .padding(
+                    start = EpaperDimensions.PaddingLarge,
+                    top = EpaperDimensions.PaddingLarge,
+                    end = EpaperDimensions.PaddingLarge
+                ),
             verticalAlignment = Alignment.CenterVertically
         ) {
             OutlinedTextField(
@@ -68,15 +91,7 @@ internal fun CatalogListContent(
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Uri,
-                    imeAction = ImeAction.Done
-                ),
-                keyboardActions = KeyboardActions(
-                    onDone = {
-                        if (draftUrl.isNotBlank()) {
-                            onAddCatalog(draftUrl.trim())
-                            draftUrl = ""
-                        }
-                    }
+                    imeAction = ImeAction.Next
                 ),
                 modifier = Modifier.weight(1f)
             )
@@ -85,21 +100,58 @@ internal fun CatalogListContent(
 
             EpaperButton(
                 text = "Add",
-                onClick = {
-                    if (draftUrl.isNotBlank()) {
-                        onAddCatalog(draftUrl.trim())
-                        draftUrl = ""
-                    }
-                },
+                onClick = submitCatalog,
                 enabled = !uiState.isAddingCatalog && draftUrl.isNotBlank()
+            )
+        }
+
+        // Optional HTTP Basic sign-in. Kept on its own fixed row so adding credentials
+        // never shifts the catalog list underneath it on an e-paper screen.
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(
+                    start = EpaperDimensions.PaddingLarge,
+                    end = EpaperDimensions.PaddingLarge,
+                    bottom = EpaperDimensions.PaddingLarge
+                ),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            OutlinedTextField(
+                value = draftUsername,
+                onValueChange = { draftUsername = it },
+                label = { Text("Username (optional)") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Text,
+                    imeAction = ImeAction.Next
+                ),
+                modifier = Modifier.weight(1f)
+            )
+
+            Spacer(modifier = Modifier.width(EpaperDimensions.PaddingMedium))
+
+            OutlinedTextField(
+                value = draftPassword,
+                onValueChange = { draftPassword = it },
+                label = { Text("Password (optional)") },
+                singleLine = true,
+                visualTransformation = PasswordVisualTransformation(),
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Password,
+                    imeAction = ImeAction.Done
+                ),
+                keyboardActions = KeyboardActions(onDone = { submitCatalog() }),
+                modifier = Modifier.weight(1f)
             )
         }
 
         if (uiState.savedCatalogs.isEmpty()) {
             EpaperEmptyState(
                 title = "No catalogs yet",
-                message = "Add a public OPDS feed address above to browse and download books. " +
-                    "MiiReader reads OPDS 1 (Atom) and OPDS 2 (JSON) feeds.",
+                message = "Add an OPDS feed address above to browse and download books. " +
+                    "If the catalog asks you to sign in, enter its username and password " +
+                    "too. MiiReader reads OPDS 1 (Atom) and OPDS 2 (JSON) feeds.",
                 modifier = Modifier.fillMaxWidth()
             )
         } else {

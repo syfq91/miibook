@@ -123,4 +123,114 @@ class DefaultCatalogRepositoryTest {
 
         assertNull(repository.getCatalogById("cat-does-not-exist"))
     }
+
+    @Test
+    fun `basic credentials are stored with the catalog`() = runTest(testDispatcher) {
+        val saved = repository.addCatalog(
+            "https://catalog.example.org/opds",
+            username = "  reader  ",
+            password = "s3cret"
+        )
+
+        assertEquals("reader", saved?.username)
+        assertEquals("s3cret", saved?.password)
+        assertEquals("reader", fakeDao.getCatalogById(saved!!.id)?.username)
+    }
+
+    @Test
+    fun `a blank username stores no credentials`() = runTest(testDispatcher) {
+        val saved = repository.addCatalog(
+            "https://catalog.example.org/opds",
+            username = "   ",
+            password = "should be ignored"
+        )
+
+        assertNull(saved?.username)
+        assertNull(saved?.password)
+    }
+
+    @Test
+    fun `re-adding a catalog refreshes its credentials instead of duplicating it`() =
+        runTest(testDispatcher) {
+            repository.addCatalog("https://catalog.example.org/opds", username = "old", password = "old")
+            val updated = repository.addCatalog(
+                "https://catalog.example.org/opds/",
+                username = "new",
+                password = "new"
+            )
+
+            assertEquals(1, fakeDao.countCatalogs())
+            assertEquals("new", updated?.username)
+            assertEquals("new", fakeDao.getCatalogById(updated!!.id)?.password)
+        }
+
+    @Test
+    fun `a nested feed inherits the credentials saved for its origin`() = runTest(testDispatcher) {
+        repository.addCatalog(
+            "https://catalog.example.org/opds",
+            username = "reader",
+            password = "s3cret"
+        )
+
+        val match = repository.findCatalogForUrl("https://catalog.example.org/opds/books")
+
+        assertEquals("reader", match?.username)
+    }
+
+    @Test
+    fun `a sibling path on the same origin still gets the credentials`() = runTest(testDispatcher) {
+        // BookFlow links to /opdsx3 outside the /opds path; the realm covers both.
+        repository.addCatalog(
+            "https://catalog.example.org/opds",
+            username = "reader",
+            password = "s3cret"
+        )
+
+        val match = repository.findCatalogForUrl("https://catalog.example.org/opdsx3")
+
+        assertEquals("reader", match?.username)
+    }
+
+    @Test
+    fun `credentials never cross to another host or port`() = runTest(testDispatcher) {
+        repository.addCatalog(
+            "https://catalog.example.org/opds",
+            username = "reader",
+            password = "s3cret"
+        )
+
+        assertNull(repository.findCatalogForUrl("https://other.example.org/opds"))
+        assertNull(repository.findCatalogForUrl("https://catalog.example.org:8443/opds"))
+        assertNull(repository.findCatalogForUrl("http://catalog.example.org/opds"))
+    }
+
+    @Test
+    fun `a public catalog is never used as a credential match`() = runTest(testDispatcher) {
+        repository.addCatalog("https://catalog.example.org/opds")
+
+        assertNull(repository.findCatalogForUrl("https://catalog.example.org/opds/books"))
+    }
+
+    @Test
+    fun `the most specific catalog path wins when two share an origin`() = runTest(testDispatcher) {
+        repository.addCatalog(
+            "https://catalog.example.org/opds",
+            username = "general",
+            password = "general"
+        )
+        repository.addCatalog(
+            "https://catalog.example.org/opds/private",
+            username = "private",
+            password = "private"
+        )
+
+        assertEquals(
+            "private",
+            repository.findCatalogForUrl("https://catalog.example.org/opds/private/books")?.username
+        )
+        assertEquals(
+            "general",
+            repository.findCatalogForUrl("https://catalog.example.org/opds/books")?.username
+        )
+    }
 }

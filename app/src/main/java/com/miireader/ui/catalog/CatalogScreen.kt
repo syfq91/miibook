@@ -31,7 +31,7 @@ import com.miireader.ui.theme.HighContrastErrorText
 @Composable
 fun CatalogScreen(
     uiState: CatalogUiState,
-    onAddCatalog: (String) -> Unit,
+    onAddCatalog: (String, String?, String?) -> Unit,
     onRemoveCatalog: (String) -> Unit,
     onOpenFeed: (String) -> Unit,
     onCloseFeed: () -> Unit,

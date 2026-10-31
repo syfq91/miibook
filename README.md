@@ -8,7 +8,7 @@ Inspired by CrossPoint Reader's reading-focused design, but built as a native
 Android app — not a firmware reproduction.
 
 **Status:** v0.1.0 — all six phases of [`plan.md`](plan.md) implemented; this is
-a **release candidate**, not a verified product. Everything is backed by 131
+a **release candidate**, not a verified product. Everything is backed by 155
 local unit tests plus debug/release builds — but no device or emulator exists
 on the build machine, so nothing has been observed on e-paper hardware. Read
 [`LIMITATIONS.md`](LIMITATIONS.md) before trusting anything on a real device.
@@ -39,6 +39,8 @@ on the build machine, so nothing has been observed on e-paper hardware. Read
 - Minimal toolbar that can be hidden while reading
 - OPDS catalog browser — save catalog addresses, browse feeds (OPDS 1 and 2),
   open sub-feeds, and pick an acquisition format
+- Optional HTTP Basic sign-in per saved catalog, applied to its feeds and
+  downloads (passwords are stored unencrypted in app-private storage)
 - Download queue with progress, cancel, and retry; downloads are validated
   against the EPUB engine before they enter the library
 - Downloads screen (active / completed / failed) with offline access to
@@ -82,7 +84,7 @@ Requires a JDK 17+ and the Android SDK (platform 36).
 ./gradlew assembleRelease        # release APK -> app/build/outputs/apk/release/
 ```
 
-(There is no release-variant unit-test task in AGP 9; the same 131 tests run
+(There is no release-variant unit-test task in AGP 9; the same 155 tests run
 against the debug variant, and `assembleRelease` verifies release compilation.)
 
 The release build is **unsigned** and **not minified** (R8 off): Readium ships
@@ -127,10 +129,11 @@ bring-up checklist in `LIMITATIONS.md` §3 against the release APK.
 
 ## Testing
 
-131 local unit tests cover the library, import (including malformed, empty,
+155 local unit tests cover the library, import (including malformed, empty,
 and unsupported EPUBs), reader state, bookmarks and progress across database
-restarts, database upgrades from v1/v2 schemas, the OPDS parser and HTTP
-layer (against fixtures and a loopback server), the download queue (including
+restarts, database upgrades from v1–v3 schemas, the OPDS parser and HTTP
+layer (against fixtures and a loopback server, including HTTP Basic auth and
+401 wording), catalog credential matching, the download queue (including
 interrupted transfers), settings, the e-paper design rules, and activity
 recreation. Tests needing a real `Uri`, `Context`, `Room`, or Readium `Url`
 run under Robolectric (SDK 34).

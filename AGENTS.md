@@ -96,6 +96,11 @@ The docs online are often for a different version. These bite hard:
   `-common` / `-internals` siblings) are **not published to Maven Central** for
   3.3.0 — every version returns HTTP 404. Only the Android/Fragment navigator is
   consumable while Readium stays pinned to 3.3.0.
+- `DefaultHttpClient.stream(request)` reports **every non-2xx response** as
+  `Try.Failure(HttpError.ErrorResponse)`, not as a success response with a status.
+  Map `ErrorResponse.status.code` yourself — otherwise the user sees only
+  `"HTTP Error 401"`. (Added with the HTTP Basic auth work; see
+  `ReadiumOpdsHttpClient` / `ReadiumBookDownloader`.)
 - `EpubNavigatorFragment`'s constructor is `internal`. Build it via
   `EpubNavigatorFactory(publication).createFragmentFactory(...)` +
   `factory.instantiate(...)`. Install
@@ -200,8 +205,16 @@ was implemented** and `platform/epaper/EpaperController` remains a
 vendor-neutral no-op seam. `plan.md`'s Phase 5 section carries the sources and
 the integration path to follow if hardware ever confirms the SDK.
 
-Phase 6 added the hardening suite (131 tests total): destructive-migration
-tests for v1/v2 databases, malformed/large/unsupported EPUB fixtures against
+Phase 4 also supports **optional HTTP Basic authentication** per saved catalog:
+the add-catalog row takes username/password, the credentials are stored on
+`catalogs` (and copied onto queued `downloads` so retries survive process
+death), and they are sent to any feed/download on the same scheme/host/port.
+Only Basic is supported — no OPDS auth documents/OAuth/DRM — and the password
+is stored in plain text in the app-private database (`LIMITATIONS.md` §2.9).
+Database schema is now **v4** (v3 → v4 adds the credential columns).
+
+Phase 6 added the hardening suite (155 tests total): destructive-migration
+tests for v1/v2/v3 databases, malformed/large/unsupported EPUB fixtures against
 real Readium, real imports over `content://` streams, loopback HTTP tests for
 every network failure mode, mid-stream interruption of downloads, offline
 reading + progress restoration across a database restart, and activity

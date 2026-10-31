@@ -9,6 +9,7 @@ import com.miireader.data.epub.PublicationOpenException
 import com.miireader.data.local.entity.BookEntity
 import com.miireader.data.local.DownloadEntity
 import com.miireader.data.local.DownloadStatus
+import com.miireader.data.opds.CatalogCredentials
 import com.miireader.data.opds.CatalogLink
 import com.miireader.data.repository.BookRepository
 import java.io.File
@@ -32,10 +33,18 @@ interface DownloadManager {
     /**
      * Enqueues a download from an OPDS acquisition link.
      *
+     * @param credentials HTTP Basic credentials for the catalog serving the link, or null
+     *         for a public catalog. They are stored on the queue row so retries and
+     *         recovery after process death can still authenticate.
      * @return the download id, or null when the link is not a format we can open (only
      *         EPUB is supported today).
      */
-    suspend fun enqueueDownload(link: CatalogLink, title: String?, author: String?): String?
+    suspend fun enqueueDownload(
+        link: CatalogLink,
+        title: String?,
+        author: String?,
+        credentials: CatalogCredentials? = null
+    ): String?
 
     /** Removes a download from the queue. Cancelling an in-flight fetch is best-effort. */
     suspend fun cancelDownload(id: String)
@@ -103,7 +112,8 @@ class DefaultDownloadManager(
     override suspend fun enqueueDownload(
         link: CatalogLink,
         title: String?,
-        author: String?
+        author: String?,
+        credentials: CatalogCredentials?
     ): String? {
         // Only EPUB for now; PDF/CBZ support can be added later
         val isEpub = link.mediaType?.contains("epub") == true
@@ -118,6 +128,8 @@ class DefaultDownloadManager(
             title = title,
             author = author,
             mediaType = link.mediaType,
+            username = credentials?.username,
+            password = credentials?.password,
             status = DownloadStatus.QUEUED
         )
 
@@ -192,9 +204,10 @@ class DefaultDownloadManager(
         val tempFile = File(downloadsDir, "${download.id}.tmp")
         downloadRepository.updateDownload(download.copy(tempFilePath = tempFile.absolutePath))
 
+        val credentials = CatalogCredentials.ofOrNull(download.username, download.password)
         var lastReportedPercent = -1
         try {
-            downloader.downloadTo(download.url, tempFile) { downloaded, total ->
+            downloader.downloadTo(download.url, tempFile, credentials) { downloaded, total ->
                 val progress = if (total > 0) downloaded.toFloat() / total else 0f
                 // One database write per whole percent keeps churn low on e-paper devices.
                 val percent = (progress * 100).toInt()

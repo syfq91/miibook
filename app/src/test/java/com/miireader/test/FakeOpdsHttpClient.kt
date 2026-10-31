@@ -1,6 +1,7 @@
 package com.miireader.test
 
 import com.miireader.core.error.AppError
+import com.miireader.data.opds.CatalogCredentials
 import com.miireader.data.opds.CatalogException
 import com.miireader.data.opds.OpdsHttpClient
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,6 +25,9 @@ class FakeOpdsHttpClient(
     /** Every URL passed to [get], in order. */
     val requestedUrls = mutableListOf<String>()
 
+    /** Credentials passed alongside each URL, in order (null for public feeds). */
+    val requestedCredentials = mutableListOf<CatalogCredentials?>()
+
     /** When set, [get] throws this instead of serving a body. */
     var failure: CatalogException? = null
 
@@ -31,8 +35,9 @@ class FakeOpdsHttpClient(
         _bodies.value = _bodies.value + (url to body)
     }
 
-    override suspend fun get(url: String): ByteArray {
+    override suspend fun get(url: String, credentials: CatalogCredentials?): ByteArray {
         requestedUrls += url
+        requestedCredentials += credentials
         failure?.let { throw it }
         return _bodies.value[url]
             ?: throw CatalogException(

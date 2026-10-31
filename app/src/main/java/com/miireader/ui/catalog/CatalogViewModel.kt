@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.miireader.data.download.DownloadManager
 import com.miireader.data.local.entity.CatalogEntity
+import com.miireader.data.opds.CatalogCredentials
 import com.miireader.data.opds.CatalogException
 import com.miireader.data.opds.CatalogFeed
 import com.miireader.data.opds.CatalogLink
@@ -105,11 +106,12 @@ class CatalogViewModel(
     )
 
     /**
-     * Validates [url], fetches and parses its feed, and only then saves it. A catalog that
-     * cannot be read is never persisted, so the list only ever holds addresses that have
-     * worked at least once.
+     * Validates [url], fetches and parses its feed (using optional HTTP Basic
+     * [username]/[password]), and only then saves it. A catalog that cannot be read is
+     * never persisted, so the list only ever holds addresses that have worked at least
+     * once.
      */
-    fun addCatalog(url: String) {
+    fun addCatalog(url: String, username: String? = null, password: String? = null) {
         if (_isAddingCatalog.value) return
         if (!OpdsCatalogSource.isValidUrl(url)) {
             _errorMessage.value = "That doesn't look like a valid catalog address."
@@ -118,9 +120,15 @@ class CatalogViewModel(
         viewModelScope.launch {
             _isAddingCatalog.value = true
             _errorMessage.value = null
+            val credentials = CatalogCredentials.ofOrNull(username, password)
             try {
-                val feed = catalogSource.loadFeed(url)
-                catalogRepository.addCatalog(url = url, title = feed.title)
+                val feed = catalogSource.loadFeed(url, credentials)
+                catalogRepository.addCatalog(
+                    url = url,
+                    title = feed.title,
+                    username = credentials?.username,
+                    password = credentials?.password
+                )
             } catch (e: CatalogException) {
                 _errorMessage.value = e.error.message
             } catch (e: Exception) {
@@ -152,7 +160,9 @@ class CatalogViewModel(
             _isLoadingFeed.value = true
             _errorMessage.value = null
             try {
-                _currentFeed.value = catalogSource.loadFeed(url)
+                // Nested feeds are absolute links with no catalog id attached, so the
+                // saved catalog is located by origin/path before the request is made.
+                _currentFeed.value = catalogSource.loadFeed(url, credentialsFor(url))
                 _currentFeedUrl.value = url
             } catch (e: CatalogException) {
                 _errorMessage.value = e.error.message
@@ -200,7 +210,7 @@ class CatalogViewModel(
                 mediaType = mediaType
             )
             val id = try {
-                downloadManager.enqueueDownload(link, title, author)
+                downloadManager.enqueueDownload(link, title, author, credentialsFor(url))
             } catch (e: Exception) {
                 _errorMessage.value = "Couldn't start that download: ${e.message}"
                 return@launch
@@ -216,6 +226,11 @@ class CatalogViewModel(
     fun clearError() {
         _errorMessage.value = null
     }
+
+    /** Credentials saved for the catalog that owns [url], or null for a public feed. */
+    private suspend fun credentialsFor(url: String): CatalogCredentials? =
+        catalogRepository.findCatalogForUrl(url)
+            ?.let { CatalogCredentials.ofOrNull(it.username, it.password) }
 
     private fun CatalogEntity.toItemUi() = CatalogItemUi(
         id = id,
