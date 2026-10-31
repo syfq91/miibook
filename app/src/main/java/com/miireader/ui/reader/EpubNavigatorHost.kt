@@ -21,6 +21,8 @@ import com.miireader.core.model.ReaderTheme
 import org.readium.r2.navigator.epub.EpubNavigatorFactory
 import org.readium.r2.navigator.epub.EpubNavigatorFragment
 import org.readium.r2.navigator.epub.EpubPreferences
+import org.readium.r2.navigator.input.InputListener
+import org.readium.r2.navigator.input.TapEvent
 import org.readium.r2.navigator.preferences.Theme as NavigatorTheme
 import org.readium.r2.shared.DelicateReadiumApi
 import org.readium.r2.shared.ExperimentalReadiumApi
@@ -61,6 +63,11 @@ private fun buildPreferences(fontSizeSp: Int, readerTheme: ReaderTheme): EpubPre
  * The transaction is deferred with [View.post] until the container is attached. Adding a
  * fragment before its container exists makes FragmentManager throw
  * "No view found for id", and the fragment's view would not be created beforehand.
+ *
+ * Taps the publication itself does not consume (no link, footnote, or active selection)
+ * are split into left/middle/right zones by [ReaderTapZone]: the outer thirds turn pages
+ * and the middle toggles the toolbar. Handling taps through Readium's input listener
+ * keeps links and text selection working, which an overlay in Compose would block.
  */
 @OptIn(ExperimentalReadiumApi::class, DelicateReadiumApi::class)
 @Composable
@@ -70,6 +77,9 @@ fun EpubNavigatorHost(
     readerTheme: ReaderTheme,
     onNavigatorReady: (ReaderNavigator) -> Unit,
     onNavigatorDisposed: () -> Unit,
+    onTapPrevious: () -> Unit,
+    onTapToggleToolbar: () -> Unit,
+    onTapNext: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -83,6 +93,9 @@ fun EpubNavigatorHost(
     val themeState = rememberUpdatedState(readerTheme)
     val readyState = rememberUpdatedState(onNavigatorReady)
     val disposedState = rememberUpdatedState(onNavigatorDisposed)
+    val tapPreviousState = rememberUpdatedState(onTapPrevious)
+    val tapToggleToolbarState = rememberUpdatedState(onTapToggleToolbar)
+    val tapNextState = rememberUpdatedState(onTapNext)
 
     val navigatorRef = remember { mutableStateOf<EpubNavigatorFragment?>(null) }
 
@@ -126,12 +139,41 @@ fun EpubNavigatorHost(
                         fontSizeSp = fontSizeState.value,
                         readerTheme = themeState.value
                     )
+                    fragment.addInputListener(
+                        ReaderTapListener(fragment) { zone ->
+                            when (zone) {
+                                ReaderTapZone.PREVIOUS_PAGE -> tapPreviousState.value()
+                                ReaderTapZone.TOGGLE_TOOLBAR -> tapToggleToolbarState.value()
+                                ReaderTapZone.NEXT_PAGE -> tapNextState.value()
+                            }
+                        }
+                    )
                     navigatorRef.value = fragment
                     registerWhenReady(fragment) { readyState.value(it) }
                 }
             }
         }
     )
+}
+
+/**
+ * Converts taps into reader commands using the publication view's horizontal thirds.
+ *
+ * Readium calls this only for taps that no link, footnote, or drag consumed, so returning
+ * `true` (consumed) does not break in-book navigation or text selection.
+ */
+private class ReaderTapListener(
+    private val fragment: EpubNavigatorFragment,
+    private val onTapZone: (ReaderTapZone) -> Unit
+) : InputListener {
+
+    override fun onTap(event: TapEvent): Boolean {
+        val width = fragment.view?.width ?: return false
+        if (width <= 0) return false
+
+        onTapZone(readerTapZoneAt(event.point.x, width))
+        return true
+    }
 }
 
 /**

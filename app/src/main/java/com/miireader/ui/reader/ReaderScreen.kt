@@ -52,9 +52,10 @@ tailrec fun Context.findFragmentActivity(): FragmentActivity = when (this) {
  * The reader screen: the navigator page, a hideable top toolbar, and an always-present
  * bottom bar with the page-turn controls.
  *
- * The toolbar's slot is always composed — it simply holds nothing when hidden — so
- * toggling it never disposes and re-creates the navigator, which would lose the page
- * currently on screen.
+ * Tapping the navigator's left or right third turns the page; tapping the middle third
+ * toggles the top toolbar. The toolbar's slot is always composed — it simply holds
+ * nothing when hidden — so toggling it never disposes and re-creates the navigator, which
+ * would lose the page currently on screen.
  */
 @Composable
 fun ReaderScreen(
@@ -142,6 +143,9 @@ fun ReaderScreen(
                         readerTheme = uiState.readerTheme,
                         onNavigatorReady = onNavigatorReady,
                         onNavigatorDisposed = onNavigatorDisposed,
+                        onTapPrevious = onPreviousPage,
+                        onTapToggleToolbar = onToggleToolbar,
+                        onTapNext = onNextPage,
                         modifier = Modifier.fillMaxSize()
                     )
                 }
